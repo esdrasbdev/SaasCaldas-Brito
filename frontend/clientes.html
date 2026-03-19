@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clientes - Sistema Jurídico</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/sidebar.css">
+</head>
+<body>
+  <div class="app-container">
+    <nav id="sidebar" class="sidebar"></nav>
+    
+    <main class="main-content">
+      <div class="page-header">
+        <div>
+          <h1>Gestão de Clientes</h1>
+          <p>Consulte, edite e gerencie sua base de contatos.</p>
+        </div>
+        <button id="btn-novo-cliente" class="btn-primary">
+          <i class="fa-solid fa-plus"></i> Novo Cliente
+        </button>
+      </div>
+
+      <!-- Modal / Formulário (Oculto por padrão) -->
+      <div id="modal-container" class="modal-overlay" style="display: none;">
+        <!-- Removido 'card-section' e estilo inline para usar classes CSS novas -->
+        <div class="modal-content">
+          <form id="form-cliente">
+            <div class="modal-header">
+              <h2 id="modal-titulo">Novo Cliente</h2>
+            </div>
+
+            <div class="modal-body">
+              <input type="hidden" id="cliente-id">
+              
+              <!-- Linha 1: Nome (Maior) + Tipo (Menor) -->
+              <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 16px;">
+                <div class="form-group">
+                  <label for="cliente-nome">Nome Completo / Razão Social *</label>
+                  <input type="text" id="cliente-nome" placeholder="Ex: João da Silva" required>
+                </div>
+                <div class="form-group">
+                  <label for="cliente-tipo">Tipo</label>
+                  <select id="cliente-tipo">
+                    <option value="PF">Pessoa Física (CPF)</option>
+                    <option value="PJ">Pessoa Jurídica (CNPJ)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Linha 2: Documento + Email + Telefone (3 colunas) -->
+              <div style="display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 16px;">
+                <div class="form-group">
+                  <label for="cliente-documento">CPF / CNPJ</label>
+                  <input type="text" id="cliente-documento" placeholder="Apenas números">
+                </div>
+                <div class="form-group">
+                  <label for="cliente-email">E-mail</label>
+                  <input type="email" id="cliente-email" placeholder="email@exemplo.com">
+                </div>
+                <div class="form-group">
+                  <label for="cliente-telefone">Telefone</label>
+                  <input type="text" id="cliente-telefone" placeholder="(00) 00000-0000">
+                </div>
+              </div>
+              
+              <!-- Novos Campos: Pessoais -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                   <label>Nacionalidade</label>
+                   <input type="text" id="cliente-nacionalidade" placeholder="Brasileiro(a)">
+                </div>
+                <div class="form-group">
+                   <label>Estado Civil</label>
+                   <input type="text" id="cliente-estado-civil" placeholder="Solteiro(a)">
+                </div>
+                <div class="form-group">
+                   <label>Profissão</label>
+                   <input type="text" id="cliente-profissao" placeholder="Advogado(a)">
+                </div>
+              </div>
+
+              <!-- Novos Campos: Endereço -->
+              <h3 style="font-size: 1rem; color: var(--azul-escuro); margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Endereço</h3>
+              
+              <!-- Endereço mais compacto horizontalmente -->
+              <div style="display: grid; grid-template-columns: 120px 1fr 100px 1fr; gap: 16px;">
+                <div class="form-group"><label>CEP</label><input type="text" id="cliente-cep" placeholder="00000-000"></div>
+                <div class="form-group"><label>Rua/Av</label><input type="text" id="cliente-endereco" placeholder="Logradouro"></div>
+                <div class="form-group"><label>Número</label><input type="text" id="cliente-numero"></div>
+                <div class="form-group"><label>Bairro</label><input type="text" id="cliente-bairro"></div>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 100px; gap: 16px;">
+                <div class="form-group"><label>Cidade</label><input type="text" id="cliente-cidade"></div>
+                <div class="form-group"><label>UF</label><input type="text" id="cliente-estado" placeholder="SP"></div>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" id="btn-cancelar" class="btn-secondary">Cancelar</button>
+              <button type="submit" class="btn-primary">Salvar Cliente</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      
+      <!-- Tabela (View) -->
+      <div id="view-tabela-container"></div>
+    </main>
+  </div>
+
+  <script type="module" src="js/supabase.js"></script><script type="module" src="js/auth.js"></script><script type="module" src="js/guard.js"></script><script type="module" src="js/sidebar.js"></script><script type="module" src="js/clientes.js"></script>
+</body>
+</html>
