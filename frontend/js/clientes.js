@@ -5,19 +5,35 @@
 
 import { supabase } from './supabase.js';
 import { AuthAPI } from './auth.js';
+import { showToast } from './utils.js'; // Novo sistema de avisos
 
 // ==========================================
 // 1. MODEL (Gerencia Dados e Banco)
 // ==========================================
 const ClienteModel = {
   async listarTodos() {
-    const { data, error } = await supabase
+    // Tentativa de busca com o nome do criador (join)
+    let { data, error } = await supabase
       .from('clientes')
-      .select('*')
+      .select('*, usuarios(nome)') // Busca também o nome de quem criou (se houver relação)
       .order('nome', { ascending: true });
     
-    if (error) throw error;
-    return data;
+    // Se a busca com join falhar (ex: relação não existe no DB ainda), faz um fallback
+    if (error && (error.code === 'PGRST204' || error.code === 'PGRST200')) {
+      console.warn('Aviso: Relação "usuarios" não encontrada (Erro ' + error.code + '). Carregando dados sem o nome do criador.');
+      
+      // Busca simples, sem o join
+      const fallbackResult = await supabase
+        .from('clientes')
+        .select('*')
+        .order('nome', { ascending: true });
+
+      if (fallbackResult.error) throw fallbackResult.error; // Lança o erro do fallback se houver
+      return fallbackResult.data;
+    }
+
+    if (error) throw error; // Lança outros erros que não sejam de relação
+    return data; // Retorna dados do join se bem-sucedido
   },
 
   async buscarPorId(id) {
@@ -124,8 +140,13 @@ const ClienteView = {
     tbody.innerHTML = clientes.map(c => `
       <tr>
         <td>
-          <div style="font-weight: 600; color: var(--azul-escuro);">${c.nome}</div>
-          <small style="color: var(--cinza-medio);">${c.tipo === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'}</small>
+          <div style="display: flex; flex-direction: column;">
+            <span style="font-weight: 600; color: var(--azul-escuro);">${c.nome}</span>
+            <span style="font-size: 0.75rem; color: var(--cinza-medio); margin-top: 2px;">
+              ${c.tipo === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'} 
+              ${c.usuarios?.nome ? `• Criado por <strong>${c.usuarios.nome.split(' ')[0]}</strong>` : ''}
+            </span>
+          </div>
         </td>
         <td>${c.documento || '-'}</td>
         <td>
@@ -173,7 +194,7 @@ const ClienteView = {
   },
 
   mostrarErro(msg) {
-    alert(`Erro: ${msg}`);
+    showToast(msg, 'error');
   }
 };
 
@@ -229,7 +250,7 @@ const ClienteController = {
 
       if (btnDelete) {
         const id = btnDelete.dataset.id;
-        if (confirm('Tem certeza que deseja excluir este cliente?')) {
+        if (confirm('Tem certeza? Isso apagará o histórico deste cliente.')) {
           await this.excluirCliente(id);
         }
       }
@@ -248,40 +269,101 @@ const ClienteController = {
 
   async salvarCliente() {
     const id = document.getElementById('cliente-id').value;
-    const dados = {
-      nome: document.getElementById('cliente-nome').value,
+    
+    // Coleta valores tratando strings vazias como null para evitar erros de banco
+    const getVal = (eid) => document.getElementById(eid).value.trim() || null;
+    
+    // Pega o usuário logado para registrar quem criou
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Busca o ID interno do usuário na tabela pública 'usuarios' (pode ser diferente do Auth ID)
+    let usuarioIdCorreto = null;
+    if (user && user.email) {
+      const { data: usuarioPublico } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('email', user.email)
+        .single();
+      
+      if (usuarioPublico) usuarioIdCorreto = usuarioPublico.id;
+    }
+
+    // Prepara objeto APENAS com colunas que existem no banco para evitar erro PGRST204
+    // Campos de endereço removidos temporariamente do envio até que a tabela seja atualizada
+    const payload = {
+      nome: getVal('cliente-nome'),
       tipo: document.getElementById('cliente-tipo').value,
-      documento: document.getElementById('cliente-documento').value,
-      email: document.getElementById('cliente-email').value,
-      telefone: document.getElementById('cliente-telefone').value,
-      nacionalidade: document.getElementById('cliente-nacionalidade').value,
-      estado_civil: document.getElementById('cliente-estado-civil').value,
-      profissao: document.getElementById('cliente-profissao').value,
-      cep: document.getElementById('cliente-cep').value,
-      endereco: document.getElementById('cliente-endereco').value,
-      numero: document.getElementById('cliente-numero').value,
-      bairro: document.getElementById('cliente-bairro').value,
-      cidade: document.getElementById('cliente-cidade').value,
-      estado: document.getElementById('cliente-estado').value
+      documento: getVal('cliente-documento'),
+      email: getVal('cliente-email'),
+      telefone: getVal('cliente-telefone'),
+      usuario_id: usuarioIdCorreto // Usa o ID da tabela usuarios para garantir integridade referencial
     };
+
+    // Validação Obrigatória Dinâmica
+    const camposFaltantes = [];
+    if (!payload.nome) camposFaltantes.push('Nome Completo');
+    if (!payload.documento) camposFaltantes.push('CPF/CNPJ');
+
+    if (camposFaltantes.length > 0) {
+      // Mensagem gramaticalmente correta (e ou ,)
+      const msg = camposFaltantes.join(' e ');
+      showToast(`ATENÇÃO: É obrigatório preencher: ${msg}`, 'warning');
+      
+      // Realça visualmente os campos com erro
+      if (!payload.nome) document.getElementById('cliente-nome').classList.add('input-error');
+      if (!payload.documento) document.getElementById('cliente-documento').classList.add('input-error');
+      
+      return;
+    }
 
     try {
       if (id) {
-        await ClienteModel.atualizar(id, dados);
+        // Ao atualizar, remove usuario_id para não sobrescrever o criador original, se não quiser
+        const { usuario_id, ...dadosAtualizacao } = payload;
+        await ClienteModel.atualizar(id, dadosAtualizacao);
       } else {
-        await ClienteModel.criar(dados);
+        // Tenta criar o cliente (com retry automático se faltar a coluna usuario_id no banco)
+        try {
+          await ClienteModel.criar(payload);
+        } catch (err) {
+          // Tratamento robusto para falhas específicas de vínculo de usuário
+          const isColumnMissing = err.code === '42703'; // Coluna não existe no banco
+          const isFKViolation = err.code === '23503';   // Usuário auth não existe na tabela publica
+
+          if (isColumnMissing || isFKViolation) {
+             // Apenas aviso silencioso para debug, não é um erro fatal para o usuário
+             console.warn(`Salvando sem vínculo de criador. Motivo: ${isColumnMissing ? 'Coluna inexistente' : 'ID Usuário não sincronizado'}`);
+             
+             const { usuario_id, ...dadosSemUser } = payload;
+             await ClienteModel.criar(dadosSemUser);
+          } else {
+             throw err; // Repassa erro 23505 (Duplicidade) ou outros para o catch principal
+          }
+        }
       }
       ClienteView.fecharModal();
+      showToast('Cliente salvo com sucesso!', 'success');
       await this.carregarDados(); // Recarrega para garantir consistência
     } catch (error) {
       console.error(error);
-      ClienteView.mostrarErro('Falha ao salvar. Verifique se o CPF/CNPJ já existe.');
+      // Tratamento específico de erro de duplicidade (código Postgres 23505)
+      if (error.code === '23505' || (error.message && error.message.includes('unique'))) {
+        ClienteView.mostrarErro('Este CPF/CNPJ já está cadastrado no sistema.');
+      } else {
+        // Se o erro for sobre a coluna usuario_id não existir, avisamos mas não travamos no futuro
+        if (error.message && error.message.includes('usuario_id')) {
+           ClienteView.mostrarErro('Erro de banco de dados: Coluna usuario_id não encontrada. Contate o suporte.');
+        } else {
+           ClienteView.mostrarErro(`Erro ao salvar: ${error.message}`);
+        }
+      }
     }
   },
 
   async excluirCliente(id) {
     try {
       await ClienteModel.deletar(id);
+      showToast('Cliente excluído.', 'success');
       await this.carregarDados();
     } catch (error) {
       console.error(error);

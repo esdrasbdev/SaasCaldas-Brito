@@ -1,84 +1,218 @@
 /*
- * Lógica para a página de Configurações (Admin)
- * - Carrega usuários existentes
- * - Permite convidar novos usuários
+ * Módulo Admin - Gerenciamento de Usuários e Permissões
+ * Funcionalidades: Listar, Criar (Convidar), Editar, Excluir
  */
 
 import { supabase } from './supabase.js';
+import { showToast } from './utils.js';
 
-const formConvite = document.getElementById('form-convite');
-const listaUsuarios = document.getElementById('lista-usuarios');
+const AdminView = {
+  container: document.getElementById('admin-container') || document.body, // Fallback
+  
+  init() {
+    // Garante a estrutura da página caso não exista
+    const mainContent = document.querySelector('.main-content') || this.container;
+    
+    // Injeta o HTML da interface administrativa se necessário
+    if (!document.getElementById('lista-usuarios-body')) {
+      mainContent.innerHTML = `
+        <div class="page-header">
+          <div>
+            <h1>Configurações Administrativas</h1>
+            <p>Gerenciamento de acesso e usuários do sistema.</p>
+          </div>
+          <button id="btn-novo-usuario" class="btn btn-primary">
+            <i class="fa-solid fa-user-plus"></i> Novo Usuário
+          </button>
+        </div>
 
-// Carrega e exibe os usuários na tabela
-async function carregarUsuarios() {
-  const { data, error } = await supabase
-    .from('usuarios')
-    .select('*')
-    .order('nome', { ascending: true });
+        <div class="card-section">
+          <h2>Usuários Cadastrados</h2>
+          <div class="table-responsive">
+            <table class="recent-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>E-mail</th>
+                  <th>Função (Role)</th>
+                  <th>Status</th>
+                  <th style="text-align: right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="lista-usuarios-body">
+                <tr><td colspan="5" class="text-center">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-  if (error) {
-    console.error('Erro ao carregar usuários:', error);
-    listaUsuarios.innerHTML = `<tr><td colspan="4" class="text-center">Erro ao carregar dados.</td></tr>`;
-    return;
+        <!-- Modal Usuário -->
+        <div id="modal-usuario" class="modal-overlay" style="display: none;">
+          <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+              <h2 id="modal-titulo">Gerenciar Usuário</h2>
+            </div>
+            <form id="form-usuario">
+              <div class="modal-body">
+                <input type="hidden" id="user-id">
+                
+                <div class="form-group">
+                  <label for="user-nome">Nome Completo</label>
+                  <input type="text" id="user-nome" required>
+                </div>
+
+                <div class="form-group">
+                  <label for="user-email">E-mail Corporativo</label>
+                  <input type="email" id="user-email" required>
+                </div>
+
+                <div class="form-group">
+                  <label for="user-role">Nível de Acesso</label>
+                  <select id="user-role" required>
+                    <option value="ADMIN">ADMIN (Acesso Total)</option>
+                    <option value="ADVOGADO">ADVOGADO</option>
+                    <option value="ESTAGIARIO">ESTAGIÁRIO</option>
+                    <option value="ATENDENTE">ATENDENTE</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="user-ativo">Status da Conta</label>
+                  <select id="user-ativo" required>
+                    <option value="true">Ativo</option>
+                    <option value="false">Inativo (Bloqueado)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="btn-cancelar-modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Usuário</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  renderizarTabela(usuarios) {
+    const tbody = document.getElementById('lista-usuarios-body');
+    
+    if (!usuarios.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center">Nenhum usuário encontrado.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = usuarios.map(u => `
+      <tr>
+        <td><strong>${u.nome}</strong></td>
+        <td>${u.email}</td>
+        <td><span class="status-badge prazo-amarelo">${u.role}</span></td>
+        <td>
+          <span class="status-badge ${u.ativo ? 'status-ativo' : 'prazo-vermelho'}">
+            ${u.ativo ? 'ATIVO' : 'INATIVO'}
+          </span>
+        </td>
+        <td style="text-align: right;">
+          <button class="btn-sm btn-edit" data-id="${u.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn-sm btn-delete" data-id="${u.id}" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      </tr>
+    `).join('');
+  },
+
+  abrirModal(usuario = null) {
+    const modal = document.getElementById('modal-usuario');
+    const form = document.getElementById('form-usuario');
+    form.reset();
+    
+    document.getElementById('modal-titulo').textContent = usuario ? 'Editar Usuário' : 'Novo Usuário';
+    document.getElementById('user-id').value = usuario ? usuario.id : '';
+    
+    if (usuario) {
+      document.getElementById('user-nome').value = usuario.nome;
+      document.getElementById('user-email').value = usuario.email;
+      document.getElementById('user-email').disabled = false;
+      document.getElementById('user-role').value = usuario.role;
+      document.getElementById('user-ativo').value = usuario.ativo.toString();
+    } else {
+      document.getElementById('user-email').disabled = false;
+      document.getElementById('user-ativo').value = 'true';
+    }
+    
+    modal.style.display = 'flex';
+  },
+
+  fecharModal() {
+    document.getElementById('modal-usuario').style.display = 'none';
   }
+};
 
-  if (data.length === 0) {
-    listaUsuarios.innerHTML = `<tr><td colspan="4" class="text-center">Nenhum usuário cadastrado.</td></tr>`;
-    return;
+const AdminController = {
+  async init() {
+    AdminView.init();
+    await this.carregar();
+    this.bindEvents();
+  },
+
+  async carregar() {
+    const { data, error } = await supabase.from('usuarios').select('*').order('nome');
+    if (!error) AdminView.renderizarTabela(data);
+  },
+
+  bindEvents() {
+    document.getElementById('btn-novo-usuario').onclick = () => AdminView.abrirModal();
+    document.getElementById('btn-cancelar-modal').onclick = () => AdminView.fecharModal();
+    
+    document.getElementById('form-usuario').onsubmit = async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('user-id').value;
+      const dados = {
+        nome: document.getElementById('user-nome').value,
+        email: document.getElementById('user-email').value,
+        role: document.getElementById('user-role').value,
+        ativo: document.getElementById('user-ativo').value === 'true'
+      };
+
+      if (!id) {
+        // Criar (apenas insere na tabela pública por enquanto, auth deve ser tratado à parte ou via convite)
+        const { error } = await supabase.from('usuarios').insert(dados);
+        if (error) {
+          showToast('Erro ao criar usuário: ' + error.message, 'error');
+        } else {
+          showToast('Usuário criado com sucesso!', 'success');
+        }
+      } else {
+        // Editar
+        const { error } = await supabase.from('usuarios').update(dados).eq('id', id);
+        if (error) {
+          showToast('Erro ao atualizar: ' + error.message, 'error');
+        } else {
+          showToast('Usuário atualizado!', 'success');
+        }
+      }
+      
+      AdminView.fecharModal();
+      this.carregar();
+    };
+
+    document.getElementById('lista-usuarios-body').addEventListener('click', async (e) => {
+      const btnEdit = e.target.closest('.btn-edit');
+      const btnDelete = e.target.closest('.btn-delete');
+      
+      if (btnEdit) {
+        const { data } = await supabase.from('usuarios').select('*').eq('id', btnEdit.dataset.id).single();
+        AdminView.abrirModal(data);
+      }
+      
+      if (btnDelete) {
+        if (confirm('Tem certeza? O usuário perderá o acesso ao sistema.')) {
+          await supabase.from('usuarios').delete().eq('id', btnDelete.dataset.id);
+          this.carregar();
+        }
+      }
+    });
   }
+};
 
-  listaUsuarios.innerHTML = data.map(user => `
-    <tr>
-      <td>${user.nome}</td>
-      <td>${user.email}</td>
-      <td><span class="status-badge status-ativo">${user.role}</span></td>
-      <td>${user.ativo ? 'Ativo' : 'Inativo'}</td>
-    </tr>
-  `).join('');
-}
-
-// Envia convite para novo usuário
-formConvite.addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const nome = document.getElementById('usuario-nome').value;
-  const email = document.getElementById('usuario-email').value;
-  const role = document.getElementById('usuario-role').value;
-
-  // 1. Envia o convite via Supabase Auth (Admin)
-  // Isso cria o usuário na aba "Authentication" e envia o e-mail de convite
-  const { data, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email);
-
-  if (inviteError) {
-    console.error('Erro ao convidar usuário:', inviteError);
-    alert(`Erro ao enviar convite: ${inviteError.message}`);
-    return;
-  }
-
-  // 2. Insere o usuário na tabela 'usuarios' para definir a permissão (role)
-  // O usuário só conseguirá usar o sistema após aceitar o convite e definir a senha
-  const { error: dbError } = await supabase.from('usuarios').insert({
-    id: data.user.id, // Usa o ID retornado pelo convite
-    nome: nome,
-    email: email,
-    role: role,
-    ativo: true
-  });
-
-  if (dbError) {
-    // Se der erro aqui, o ideal seria deletar o convite, mas por simplicidade
-    // apenas avisamos o admin.
-    console.error('Erro ao salvar permissão do usuário:', dbError);
-    alert(`Convite enviado, mas houve um erro ao salvar as permissões: ${dbError.message}. Peça para o usuário tentar o login e contate o suporte se o problema persistir.`);
-    return;
-  }
-
-  alert('Convite enviado com sucesso!');
-  formConvite.reset();
-  carregarUsuarios(); // Recarrega a lista para mostrar o novo usuário
-});
-
-// Inicialização da página
-document.addEventListener('DOMContentLoaded', () => {
-  carregarUsuarios();
-});
+document.addEventListener('DOMContentLoaded', () => AdminController.init());

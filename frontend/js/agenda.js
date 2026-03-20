@@ -5,6 +5,7 @@
 
 import { supabase } from './supabase.js';
 import { AuthAPI } from './auth.js';
+import { showToast } from './utils.js';
 
 // ==========================================
 // 1. MODEL
@@ -190,7 +191,7 @@ const AgendaController = {
         AgendaView.modal.style.display = 'none';
         AgendaView.form.reset();
         this.carregar();
-      } catch(err) { alert('Erro: ' + err.message); }
+      } catch(err) { showToast(err.message, 'error'); }
     };
 
     await this.carregar();
@@ -206,7 +207,7 @@ const AgendaController = {
         try {
           await AgendaModel.deletar(btn.dataset.id, btn.dataset.tipo);
           this.carregar();
-        } catch (err) { alert('Erro ao excluir: ' + err.message); }
+        } catch (err) { showToast('Erro ao excluir: ' + err.message, 'error'); }
       }
     });
   },

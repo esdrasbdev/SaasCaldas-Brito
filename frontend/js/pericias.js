@@ -7,6 +7,7 @@
 
 import { supabase } from './supabase.js';
 import { AuthAPI } from './auth.js';
+import { showToast } from './utils.js';
 
 const formContainer = document.getElementById('form-container');
 const btnNovaPericia = document.getElementById('btn-nova-pericia');
@@ -87,13 +88,18 @@ formPericia.addEventListener('submit', async (e) => {
     perito: document.getElementById('pericia-perito').value,
   };
 
+  if (!novaPericia.processo_id || !novaPericia.data) {
+    showToast('Preencha o processo e a data.', 'warning');
+    return;
+  }
+
   const { error } = await supabase.from('pericias').insert(novaPericia);
 
   if (error) {
     console.error('Erro ao salvar perícia:', error);
-    alert('Não foi possível salvar a perícia.');
+    showToast('Não foi possível salvar a perícia.', 'error');
   } else {
-    alert('Perícia salva com sucesso!');
+    showToast('Perícia agendada com sucesso!', 'success');
     formPericia.reset();
     formContainer.style.display = 'none';
     carregarPericias();
@@ -110,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btn && confirm('Tem certeza que deseja excluir esta perícia?')) {
       const { error } = await supabase.from('pericias').delete().eq('id', btn.dataset.id);
       if (error) {
-        alert('Erro ao excluir: ' + error.message);
+        showToast('Erro ao excluir: ' + error.message, 'error');
       } else {
         carregarPericias();
       }

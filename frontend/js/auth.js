@@ -34,13 +34,14 @@ async function fetchUserRole() {
     // Busca role na tabela usuarios (Fonte da verdade)
     const { data, error } = await supabase
       .from('usuarios')
-      .select('role')
+      .select('role, nome')
       .eq('email', user.email)
       .single();
 
     if (!error && data) {
       currentUserRole = data.role;
       localStorage.setItem('userRole', currentUserRole);
+      localStorage.setItem('userName', data.nome);
     }
     
     // Notifica o sistema que a role está pronta/atualizada
@@ -81,6 +82,7 @@ async function logout() {
   try {
     // Limpa localStorage
     localStorage.removeItem('userRole');
+    localStorage.removeItem('userName');
     currentUserRole = null;
     
     // Supabase auth logout
@@ -88,6 +90,7 @@ async function logout() {
     if (error) throw error;
     
     console.log('✅ Logout realizado');
+    window.location.href = 'login.html'; // Força redirecionamento imediato
     return { success: true };
   } catch (error) {
     console.error('Erro no logout:', error);

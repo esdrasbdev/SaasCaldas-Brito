@@ -7,6 +7,7 @@
 
 import { supabase } from './supabase.js';
 import { AuthAPI } from './auth.js';
+import { showToast } from './utils.js';
 
 const formContainer = document.getElementById('form-container');
 const btnNovaAudiencia = document.getElementById('btn-nova-audiencia');
@@ -88,13 +89,18 @@ formAudiencia.addEventListener('submit', async (e) => {
     observacoes: document.getElementById('audiencia-obs').value,
   };
 
+  if (!novaAudiencia.processo_id || !novaAudiencia.data) {
+    showToast('Preencha o processo e a data.', 'warning');
+    return;
+  }
+
   const { error } = await supabase.from('audiencias').insert(novaAudiencia);
 
   if (error) {
     console.error('Erro ao salvar audiência:', error);
-    alert('Não foi possível salvar a audiência.');
+    showToast('Não foi possível salvar a audiência.', 'error');
   } else {
-    alert('Audiência salva com sucesso!');
+    showToast('Audiência agendada com sucesso!', 'success');
     formAudiencia.reset();
     formContainer.style.display = 'none';
     carregarAudiencias(); // Recarrega a lista
@@ -112,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btn && confirm('Tem certeza que deseja excluir esta audiência?')) {
       const { error } = await supabase.from('audiencias').delete().eq('id', btn.dataset.id);
       if (error) {
-        alert('Erro ao excluir: ' + error.message);
+        showToast('Erro ao excluir: ' + error.message, 'error');
       } else {
         carregarAudiencias();
       }

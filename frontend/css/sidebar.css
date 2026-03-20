@@ -1,107 +1,151 @@
-/* Estilos do Menu Lateral (Sidebar) */
+/* Estilos da Barra Lateral (Sidebar) */
 
-#sidebar {
-  width: 280px;
-  background: #0f172a; /* Azul muito escuro (Slate 900) */
-  color: #e2e8f0;
+.sidebar {
+  width: 260px;
+  height: 100vh;
+  background: var(--branco);
+  border-right: 1px solid var(--cinza-borda);
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
-  min-height: 100vh;
-  transition: all 0.3s ease;
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 100;
   box-shadow: 4px 0 24px rgba(0,0,0,0.02);
 }
 
+/* Cabeçalho da Sidebar (Logo) */
 .sidebar-header {
-  padding: 32px 24px;
-  border-bottom: 1px solid #1e293b;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--cinza-fundo);
+}
+
+.sidebar-header i {
+  font-size: 1.5rem;
+  color: var(--azul-medio);
 }
 
 .sidebar-header h2 {
   font-size: 1.1rem;
-  color: #ffffff;
+  font-weight: 700;
+  color: var(--azul-escuro);
   margin: 0;
-  font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: -0.02em;
 }
 
-.sidebar-perfil {
+/* Navegação (Links) */
+.sidebar-nav {
+  padding: 16px;
+  flex: 1; /* Ocupa o espaço disponível */
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  font-size: 0.75rem;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  gap: 12px;
+  padding: 12px 16px;
+  color: var(--cinza-escuro);
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.nav-item i {
+  width: 20px;
+  text-align: center;
+  color: var(--cinza-medio);
+  transition: color 0.2s;
+}
+
+.nav-item:hover {
+  background-color: var(--azul-claro);
+  color: var(--azul-medio);
+}
+
+.nav-item:hover i {
+  color: var(--azul-medio);
+}
+
+.nav-item.active {
+  background-color: var(--azul-claro);
+  color: var(--azul-medio);
   font-weight: 600;
 }
 
-.sidebar-nav {
+/* Rodapé da Sidebar (Perfil do Usuário) */
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid var(--cinza-borda);
+  background-color: transparent; /* Remove fundo para manter consistência na troca de tema */
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  background: var(--azul-escuro);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.user-info {
   flex: 1;
-  padding: 24px 16px;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
-.sidebar-nav ul { list-style: none; padding: 0; margin: 0; }
-
-.nav-item { 
-  display: flex; 
-  align-items: center; 
-  gap: 12px; 
-  padding: 12px 16px; 
-  color: #94a3b8; 
-  text-decoration: none; 
-  border-radius: 8px; 
-  margin-bottom: 4px; 
-  transition: all 0.2s ease; 
-  font-size: 0.9rem; 
-  font-weight: 500;
+.user-name {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--azul-escuro);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.nav-item:hover { 
-  background: #1e293b; 
-  color: #f8fafc; 
-  transform: translateX(4px);
+.user-role {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--cinza-medio);
+  margin-top: 2px;
 }
 
-.nav-item.active { 
-  background: #2563eb; 
-  color: #ffffff; 
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-}
-
-.nav-item i { 
-  width: 20px; 
-  text-align: center; 
-  font-size: 1.1em;
-}
-
-.nav-separator { 
-  height: 1px; 
-  background: #1e293b; 
-  margin: 16px 8px; 
-}
-
-.sidebar-footer { 
-  padding: 24px; 
-  border-top: 1px solid #1e293b; 
-}
-
-.btn-logout { 
-  color: #ef4444; 
-  text-decoration: none; 
-  display: flex; 
-  align-items: center; 
-  gap: 10px; 
-  font-size: 0.9rem; 
-  font-weight: 500;
+.btn-logout {
+  background: none;
+  border: none;
+  color: var(--cinza-medio);
+  cursor: pointer;
   padding: 8px;
   border-radius: 6px;
-  transition: 0.2s; 
-}
-.btn-logout:hover { 
-  background: rgba(239, 68, 68, 0.1);
+  transition: all 0.2s;
 }
 
-.sidebar-version { font-size: 0.7rem; color: #334155; margin-top: 16px; text-align: center; font-family: monospace; }
+.btn-logout:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+#btn-theme-toggle:hover {
+  background: rgba(37, 99, 235, 0.15);
+  color: var(--azul-medio);
+}
