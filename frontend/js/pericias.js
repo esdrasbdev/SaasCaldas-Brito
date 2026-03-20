@@ -22,6 +22,7 @@ btnNovaPericia.addEventListener('click', () => {
   // Reseta para modo edição/criação
   formPericia.reset();
   document.querySelector('#form-pericia button[type="submit"]').style.display = 'block';
+  formPericia.classList.remove('mode-view'); // Garante estilo de edição
   const inputs = formPericia.querySelectorAll('input, select');
   inputs.forEach(el => el.disabled = false);
   document.querySelector('.modal-header h2').textContent = 'Agendar Nova Perícia';
@@ -140,6 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Trava campos
         const inputs = formPericia.querySelectorAll('input, select');
         inputs.forEach(el => el.disabled = true);
+        formPericia.classList.add('mode-view'); // Ativa estilo premium de leitura
         document.querySelector('#form-pericia button[type="submit"]').style.display = 'none';
         document.querySelector('.modal-header h2').textContent = 'Detalhes da Perícia';
         

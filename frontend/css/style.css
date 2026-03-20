@@ -573,6 +573,31 @@ textarea:focus {
   margin-bottom: var(--espaco-md); /* 16px em vez de 24px */
 }
 
+/* ESTILO VISUALIZAÇÃO (READ-ONLY PREMIUM) */
+/* Quando o modal tem a classe .mode-view */
+.mode-view input:disabled,
+.mode-view select:disabled,
+.mode-view textarea:disabled {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--cinza-borda);
+  border-radius: 0;
+  padding: 8px 0;
+  color: var(--azul-escuro);
+  font-weight: 600;
+  opacity: 1; /* Remove transparência padrão de disabled */
+  cursor: default;
+  -webkit-appearance: none; /* Remove a seta no Chrome/Safari */
+  appearance: none; /* Remove a seta no Firefox/Edge */
+}
+
+.mode-view label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--azul-medio);
+}
+
 .modal-footer {
   padding: 16px 24px;
   background: var(--cinza-fundo);

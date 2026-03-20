@@ -125,15 +125,24 @@ async function initAuth() {
 }
 
 
-// Listener para mudanças de autenticação (auto-refresh, etc)
-supabase.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'SIGNED_IN') {
-    await fetchUserRole();
-  } else if (event === 'SIGNED_OUT') {
-    currentUserRole = null;
-    localStorage.removeItem('userRole');
+// Listener para mudanças de autenticação (race-condition safe)
+const setupAuthListener = () => {
+  if (window.supabase?.auth?.onAuthStateChange) {
+    window.supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN') {
+        await fetchUserRole();
+      } else if (event === 'SIGNED_OUT') {
+        currentUserRole = null;
+        localStorage.removeItem('userRole');
+      }
+    });
+    console.log('✅ Auth listener attached');
+  } else {
+    console.log('Supabase not ready, waiting...');
+    window.addEventListener('supabase-ready', () => setupAuthListener(), { once: true });
   }
-});
+};
+setupAuthListener();
 
 // APIs públicas
 export const AuthAPI = {

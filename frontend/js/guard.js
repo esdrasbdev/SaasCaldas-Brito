@@ -37,17 +37,25 @@ async function pageGuard() {
       return;
     }
   
-    
     // 1. Verificação Rápida e Liberação (Cache Local)
     // Se tem role no cache, libera a UI imediatamente para não ficar "em branco"
     const cachedRole = localStorage.getItem('userRole');
     if (cachedRole) {
-      showPageContent();
+      // showPageContent(); // Comentado para evitar flash de conteúdo se o token for inválido
     }
 
     // Verifica autenticação
-    const { data: { session } } = await supabase.auth.getSession();
+    // Aguarda o cliente estar pronto se necessário (lazy load no supabase.js)
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('Guard: Erro ao obter sessão:', error);
+      redirectToLogin();
+      return;
+    }
+
     if (!session) {
+      console.warn('Guard: Sem sessão ativa. Redirecionando...');
       redirectToLogin();
       return;
     }
@@ -58,6 +66,8 @@ async function pageGuard() {
       redirectToDashboard();
       return;
     }
+    
+    console.log(`Guard: Acesso permitido a ${currentPage} para ${session.user.email}`);
     
     // Tudo OK - mostra conteúdo
     showPageContent();

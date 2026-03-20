@@ -166,6 +166,13 @@ const ClienteView = {
     this.elementos.tituloModal.textContent = visualizacao ? 'Visualizar Cliente' : (cliente ? 'Editar Cliente' : 'Novo Cliente');
     this.elementos.form.reset();
     
+    // Adiciona classe de estilo visualização ao container do form
+    if (visualizacao) {
+      this.elementos.form.classList.add('mode-view');
+    } else {
+      this.elementos.form.classList.remove('mode-view');
+    }
+
     // Reseta estado dos inputs (habilita tudo primeiro)
     const inputs = this.elementos.form.querySelectorAll('input, select');
     inputs.forEach(el => {

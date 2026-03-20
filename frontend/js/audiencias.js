@@ -22,6 +22,7 @@ btnNovaAudiencia.addEventListener('click', () => {
   // Reseta para modo edição
   formAudiencia.reset();
   document.querySelector('#form-audiencia button[type="submit"]').style.display = 'block';
+  formAudiencia.classList.remove('mode-view'); // Garante estilo de edição
   const inputs = formAudiencia.querySelectorAll('input, select, textarea');
   inputs.forEach(el => el.disabled = false);
   document.querySelector('.modal-header h2').textContent = 'Nova Audiência';
@@ -144,6 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Trava campos
         const inputs = formAudiencia.querySelectorAll('input, select, textarea');
         inputs.forEach(el => el.disabled = true);
+        formAudiencia.classList.add('mode-view'); // Ativa estilo premium de leitura
         document.querySelector('#form-audiencia button[type="submit"]').style.display = 'none';
         document.querySelector('.modal-header h2').textContent = 'Detalhes da Audiência';
         

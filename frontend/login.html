@@ -11,6 +11,9 @@
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   
+  <!-- Configuração de Ambiente (Carrega antes dos módulos) -->
+  <script src="js/env.js"></script>
+  
 </head>
 <body class="login-page">
 
@@ -71,7 +74,7 @@
 
   <!-- Script Lógico -->
   <script type="module">
-    import { supabase } from './js/supabase.js';
+    import { initSupabase } from './js/supabase.js';
 
     const loginForm = document.getElementById('login-form');
     const errorMsg = document.getElementById('error-msg');
@@ -80,11 +83,21 @@
     const welcomeName = document.getElementById('welcome-name');
 
     // Limpa sessão anterior ao entrar no login
-    localStorage.removeItem('user_role');
-    supabase.auth.signOut();
-
+    localStorage.removeItem('userRole'); // Corrigido de user_role para userRole
+    localStorage.removeItem('userName');
+    
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      
+      // Await init before auth
+      let client;
+      try {
+        client = await initSupabase();
+      } catch (err) {
+        errorMsg.textContent = '❌ Supabase não inicializado. Verifique js/env.js.';
+        errorMsg.style.display = 'block';
+        return;
+      }
       
       // Feedback visual de carregamento
       const btn = loginForm.querySelector('button');
@@ -95,28 +108,31 @@
 
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
+      
+      console.log(`🔍 Attempting login for: ${email}`); // DEBUG
 
       try {
-        // 1. Autenticação Supabase
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        // 1. Autenticação Supabase (now with valid client)
+        const { data: authData, error: authError } = await client.auth.signInWithPassword({
           email,
           password
         });
 
         if (authError) throw authError;
 
-        // 2. Buscar dados do usuário (Nome e Role)
-        const { data: userData, error: userError } = await supabase
+        // 2. Buscar dados do usuário (Nome e Role) - use raw client
+        const { data: userData, error: userError } = await client
           .from('usuarios')
           .select('nome, role')
           .eq('email', email)
           .single();
 
         if (userError || !userData) throw new Error('Usuário não encontrado no registro interno.');
-        if (!userData.ativo && userData.ativo !== undefined) throw new Error('Usuário inativo. Contate o administrador.');
+        if (!userData.ativo && userData.ativo !== undefined) throw new Error('Usuário inativo. Contate o administrador.'); 
 
         // 3. Salvar role localmente
-        localStorage.setItem('user_role', userData.role);
+        localStorage.setItem('userRole', userData.role); // Corrigido de user_role para userRole
+        localStorage.setItem('userName', userData.nome);
 
         // 4. Exibir Tela de Boas-vindas
         const primeiroNome = userData.nome.split(' ')[0];
@@ -145,7 +161,14 @@
 
       } catch (error) {
         console.error(error);
-        errorMsg.textContent = 'Acesso negado: Verifique suas credenciais.';
+        // Identifica erro de chave inválida para avisar o desenvolvedor
+        if (error.message && (error.message.includes('Invalid API key') || error.code === 401)) {
+          errorMsg.textContent = '⚠️ Erro de Sistema: A chave do Supabase em js/env.js é inválida.';
+        } else if (error.message === 'Invalid login credentials') {
+          errorMsg.textContent = '❌ E-mail não cadastrado ou senha incorreta. (Verifique no Supabase Auth)';
+        } else {
+          errorMsg.textContent = 'Acesso negado: Verifique suas credenciais.';
+        }
         errorMsg.style.display = 'block';
         btn.disabled = false;
         btn.innerHTML = originalBtnContent;
