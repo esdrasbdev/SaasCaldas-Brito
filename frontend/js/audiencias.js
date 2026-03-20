@@ -19,6 +19,12 @@ const listaAudiencias = document.getElementById('lista-audiencias');
 // Mostra/esconde o formulário
 btnNovaAudiencia.addEventListener('click', () => {
   formContainer.style.display = 'flex';
+  // Reseta para modo edição
+  formAudiencia.reset();
+  document.querySelector('#form-audiencia button[type="submit"]').style.display = 'block';
+  const inputs = formAudiencia.querySelectorAll('input, select, textarea');
+  inputs.forEach(el => el.disabled = false);
+  document.querySelector('.modal-header h2').textContent = 'Nova Audiência';
 });
 
 btnCancelar.addEventListener('click', () => {
@@ -72,7 +78,10 @@ async function carregarAudiencias() {
       <td>${new Date(aud.data).toLocaleString('pt-BR')}</td>
       <td>${aud.local}</td>
       <td>${aud.tipo}</td>
-      <td>${isAdmin ? `<button class="btn-sm btn-delete" data-id="${aud.id}" style="color: #ef4444;">Excluir</button>` : ''}</td>
+      <td>
+        <button class="btn-sm btn-view" data-id="${aud.id}" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
+        ${isAdmin ? `<button class="btn-sm btn-delete" data-id="${aud.id}" title="Excluir" style="color: #ef4444;"><i class="fa-solid fa-trash"></i></button>` : ''}
+      </td>
     </tr>
   `).join('');
 }
@@ -112,8 +121,37 @@ document.addEventListener('DOMContentLoaded', () => {
   carregarProcessos();
   carregarAudiencias();
   
-  // Event listener para botões de exclusão
+  // Event listener para botões de ação
   listaAudiencias.addEventListener('click', async (e) => {
+    // Visualizar
+    const btnView = e.target.closest('.btn-view');
+    if (btnView) {
+      const id = btnView.dataset.id;
+      const { data, error } = await supabase.from('audiencias').select('*').eq('id', id).single();
+      
+      if (!error && data) {
+        // Preenche form
+        document.getElementById('processo-select').value = data.processo_id;
+        // Ajusta data para formato datetime-local (YYYY-MM-DDTHH:MM)
+        const date = new Date(data.data);
+        const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+        document.getElementById('audiencia-data').value = localDate;
+        
+        document.getElementById('audiencia-local').value = data.local;
+        document.getElementById('audiencia-tipo').value = data.tipo;
+        document.getElementById('audiencia-obs').value = data.observacoes || '';
+
+        // Trava campos
+        const inputs = formAudiencia.querySelectorAll('input, select, textarea');
+        inputs.forEach(el => el.disabled = true);
+        document.querySelector('#form-audiencia button[type="submit"]').style.display = 'none';
+        document.querySelector('.modal-header h2').textContent = 'Detalhes da Audiência';
+        
+        formContainer.style.display = 'flex';
+      }
+    }
+
+    // Excluir
     const btn = e.target.closest('.btn-delete');
     if (btn && confirm('Tem certeza que deseja excluir esta audiência?')) {
       const { error } = await supabase.from('audiencias').delete().eq('id', btn.dataset.id);

@@ -19,6 +19,12 @@ const listaPericias = document.getElementById('lista-pericias');
 // Mostra/esconde o formulário
 btnNovaPericia.addEventListener('click', () => {
   formContainer.style.display = 'flex';
+  // Reseta para modo edição/criação
+  formPericia.reset();
+  document.querySelector('#form-pericia button[type="submit"]').style.display = 'block';
+  const inputs = formPericia.querySelectorAll('input, select');
+  inputs.forEach(el => el.disabled = false);
+  document.querySelector('.modal-header h2').textContent = 'Agendar Nova Perícia';
 });
 
 btnCancelar.addEventListener('click', () => {
@@ -72,7 +78,10 @@ async function carregarPericias() {
       <td>${new Date(p.data).toLocaleString('pt-BR')}</td>
       <td>${p.local}</td>
       <td>${p.perito || 'Não informado'}</td>
-      <td>${isAdmin ? `<button class="btn-sm btn-delete" data-id="${p.id}" style="color: #ef4444;">Excluir</button>` : ''}</td>
+      <td>
+        <button class="btn-sm btn-view" data-id="${p.id}" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
+        ${isAdmin ? `<button class="btn-sm btn-delete" data-id="${p.id}" title="Excluir" style="color: #ef4444;"><i class="fa-solid fa-trash"></i></button>` : ''}
+      </td>
     </tr>
   `).join('');
 }
@@ -110,8 +119,35 @@ document.addEventListener('DOMContentLoaded', () => {
   carregarProcessos();
   carregarPericias();
   
-  // Event listener para exclusão
+  // Event listener para ações
   listaPericias.addEventListener('click', async (e) => {
+    // Visualizar
+    const btnView = e.target.closest('.btn-view');
+    if (btnView) {
+      const id = btnView.dataset.id;
+      const { data, error } = await supabase.from('pericias').select('*').eq('id', id).single();
+      
+      if (!error && data) {
+        document.getElementById('processo-select').value = data.processo_id;
+        
+        const date = new Date(data.data);
+        const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+        document.getElementById('pericia-data').value = localDate;
+        
+        document.getElementById('pericia-local').value = data.local;
+        document.getElementById('pericia-perito').value = data.perito;
+
+        // Trava campos
+        const inputs = formPericia.querySelectorAll('input, select');
+        inputs.forEach(el => el.disabled = true);
+        document.querySelector('#form-pericia button[type="submit"]').style.display = 'none';
+        document.querySelector('.modal-header h2').textContent = 'Detalhes da Perícia';
+        
+        formContainer.style.display = 'flex';
+      }
+    }
+
+    // Excluir
     const btn = e.target.closest('.btn-delete');
     if (btn && confirm('Tem certeza que deseja excluir esta perícia?')) {
       const { error } = await supabase.from('pericias').delete().eq('id', btn.dataset.id);

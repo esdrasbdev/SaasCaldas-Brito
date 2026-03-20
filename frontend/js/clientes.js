@@ -154,6 +154,7 @@ const ClienteView = {
           <div><i class="fa-solid fa-phone" style="font-size: 0.8em;"></i> ${c.telefone || '-'}</div>
         </td>
         <td style="text-align: right;">
+          <button class="btn-sm btn-view" data-id="${c.id}" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
           <button class="btn-sm btn-edit" data-id="${c.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
           ${isAdmin ? `<button class="btn-sm btn-delete" data-id="${c.id}" title="Excluir" style="color: #ef4444;"><i class="fa-solid fa-trash"></i></button>` : ''}
         </td>
@@ -161,9 +162,21 @@ const ClienteView = {
     `).join('');
   },
 
-  abrirModal(cliente = null) {
-    this.elementos.tituloModal.textContent = cliente ? 'Editar Cliente' : 'Novo Cliente';
+  abrirModal(cliente = null, visualizacao = false) {
+    this.elementos.tituloModal.textContent = visualizacao ? 'Visualizar Cliente' : (cliente ? 'Editar Cliente' : 'Novo Cliente');
     this.elementos.form.reset();
+    
+    // Reseta estado dos inputs (habilita tudo primeiro)
+    const inputs = this.elementos.form.querySelectorAll('input, select');
+    inputs.forEach(el => {
+      el.disabled = visualizacao;
+      el.classList.remove('input-error');
+    });
+
+    // Controla botão de salvar
+    const btnSalvar = this.elementos.form.querySelector('button[type="submit"]');
+    if (btnSalvar) btnSalvar.style.display = visualizacao ? 'none' : 'block';
+
     document.getElementById('cliente-id').value = '';
 
     if (cliente) {
@@ -239,8 +252,15 @@ const ClienteController = {
 
     // Delegação de eventos para botões dinâmicos (Editar/Excluir)
     document.getElementById('lista-clientes-body').addEventListener('click', async (e) => {
+      const btnView = e.target.closest('.btn-view');
       const btnEdit = e.target.closest('.btn-edit');
       const btnDelete = e.target.closest('.btn-delete');
+
+      if (btnView) {
+        const id = btnView.dataset.id;
+        const cliente = this.dadosLocais.find(c => c.id === id);
+        if (cliente) ClienteView.abrirModal(cliente, true); // true = modo visualização
+      }
 
       if (btnEdit) {
         const id = btnEdit.dataset.id;
