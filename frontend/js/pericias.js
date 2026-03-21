@@ -14,6 +14,7 @@ const btnNovaPericia = document.getElementById('btn-nova-pericia');
 const btnCancelar = document.getElementById('btn-cancelar');
 const formPericia = document.getElementById('form-pericia');
 const processoSelect = document.getElementById('processo-select');
+const clienteSelect = document.getElementById('cliente-select'); // Adicione este <select> no seu HTML
 const listaPericias = document.getElementById('lista-pericias');
 
 // Mostra/esconde o formulário
@@ -54,12 +55,33 @@ async function carregarProcessos() {
   });
 }
 
+// Carrega clientes para o dropdown
+async function carregarClientes() {
+  const { data, error } = await supabase
+    .from('clientes')
+    .select('id, nome')
+    .order('nome', { ascending: true });
+
+  if (error) {
+    console.error('Erro ao carregar clientes:', error);
+    return;
+  }
+
+  clienteSelect.innerHTML = '<option value="">(Opcional) Selecione...</option>';
+  data.forEach(c => {
+    const option = document.createElement('option');
+    option.value = c.id;
+    option.textContent = c.nome;
+    clienteSelect.appendChild(option);
+  });
+}
+
 // Carrega e exibe as perícias na tabela
 async function carregarPericias() {
   const isAdmin = AuthAPI.getRole() === 'ADMIN';
   const { data, error } = await supabase
     .from('pericias')
-    .select('*, processos(numero_cnj)')
+    .select('*, processos(numero_cnj), clientes(nome)')
     .order('data', { ascending: true });
 
   if (error) {
@@ -75,7 +97,10 @@ async function carregarPericias() {
 
   listaPericias.innerHTML = data.map(p => `
     <tr>
-      <td>${p.processos?.numero_cnj || 'N/A'}</td>
+      <td>
+        <div>${p.processos?.numero_cnj || 'Sem Processo'}</div>
+        <small class="text-muted">${p.clientes?.nome || 'Cliente não vinculado'}</small>
+      </td>
       <td>${new Date(p.data).toLocaleString('pt-BR')}</td>
       <td>${p.local}</td>
       <td>${p.perito || 'Não informado'}</td>
@@ -93,13 +118,14 @@ formPericia.addEventListener('submit', async (e) => {
 
   const novaPericia = {
     processo_id: document.getElementById('processo-select').value,
+    cliente_id: document.getElementById('cliente-select').value,
     data: document.getElementById('pericia-data').value,
     local: document.getElementById('pericia-local').value,
     perito: document.getElementById('pericia-perito').value,
   };
 
-  if (!novaPericia.processo_id || !novaPericia.data) {
-    showToast('Preencha o processo e a data.', 'warning');
+  if (!novaPericia.data) {
+    showToast('A data da perícia é obrigatória.', 'warning');
     return;
   }
 
@@ -118,6 +144,7 @@ formPericia.addEventListener('submit', async (e) => {
 
 document.addEventListener('DOMContentLoaded', () => {
   carregarProcessos();
+  carregarClientes();
   carregarPericias();
   
   // Event listener para ações
@@ -130,6 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (!error && data) {
         document.getElementById('processo-select').value = data.processo_id;
+        document.getElementById('cliente-select').value = data.cliente_id;
         
         const date = new Date(data.data);
         const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);

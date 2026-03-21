@@ -203,6 +203,11 @@ const ClienteView = {
       document.getElementById('cliente-bairro').value = cliente.bairro || '';
       document.getElementById('cliente-cidade').value = cliente.cidade || '';
       document.getElementById('cliente-estado').value = cliente.estado || '';
+      // Previdenciário
+      document.getElementById('cliente-inss-senha').value = cliente.inss_senha || '';
+      document.getElementById('cliente-inss-cpf').value = cliente.documento || '';
+    } else {
+      document.getElementById('cliente-inss-cpf').value = '';
     }
 
     this.elementos.modal.style.display = 'flex'; // Flex para centralizar
@@ -255,6 +260,11 @@ const ClienteController = {
         (c.documento && c.documento.includes(termo))
       );
       ClienteView.renderizarTabela(filtrados);
+    });
+
+    // Sincroniza CPF principal com CPF do INSS visualmente
+    document.getElementById('cliente-documento').addEventListener('input', (e) => {
+      document.getElementById('cliente-inss-cpf').value = e.target.value;
     });
 
     // Delegação de eventos para botões dinâmicos (Editar/Excluir)
@@ -323,7 +333,8 @@ const ClienteController = {
       documento: getVal('cliente-documento'),
       email: getVal('cliente-email'),
       telefone: getVal('cliente-telefone'),
-      usuario_id: usuarioIdCorreto // Usa o ID da tabela usuarios para garantir integridade referencial
+      usuario_id: usuarioIdCorreto, // Usa o ID da tabela usuarios para garantir integridade referencial
+      inss_senha: getVal('cliente-inss-senha') // Novo campo
     };
 
     // Validação Obrigatória Dinâmica
@@ -357,12 +368,12 @@ const ClienteController = {
           const isColumnMissing = err.code === '42703'; // Coluna não existe no banco
           const isFKViolation = err.code === '23503';   // Usuário auth não existe na tabela publica
 
-          if (isColumnMissing || isFKViolation) {
-             // Apenas aviso silencioso para debug, não é um erro fatal para o usuário
-             console.warn(`Salvando sem vínculo de criador. Motivo: ${isColumnMissing ? 'Coluna inexistente' : 'ID Usuário não sincronizado'}`);
+          if (isColumnMissing || isFKViolation || (err.message && err.message.includes('inss_senha'))) {
+             // Apenas aviso silencioso para debug, tenta salvar sem os campos problemáticos
+             console.warn(`Salvando com payload reduzido. Motivo: ${err.message}`);
              
-             const { usuario_id, ...dadosSemUser } = payload;
-             await ClienteModel.criar(dadosSemUser);
+             const { usuario_id, inss_senha, ...dadosReduzidos } = payload;
+             await ClienteModel.criar(dadosReduzidos);
           } else {
              throw err; // Repassa erro 23505 (Duplicidade) ou outros para o catch principal
           }

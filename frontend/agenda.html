@@ -42,6 +42,7 @@
                 <div class="form-group">
                   <label>Tipo de Evento *</label>
                   <select id="agenda-tipo" required>
+                    <option value="reuniao">Reunião / Consulta</option>
                     <option value="audiencia">Audiência</option>
                     <option value="pericia">Perícia</option>
                   </select>
@@ -52,23 +53,42 @@
                 </div>
               </div>
 
-              <!-- Linha 2: Processo (Largo) -->
-              <div class="form-group">
-                <label>Processo Vinculado</label>
-                <select id="agenda-processo">
-                  <option value="">Carregando processos...</option>
-                </select>
+              <!-- Vínculo a Participantes (para Reunião) -->
+              <div id="bloco-participantes" style="display: none;">
+                <p style="font-size: 0.8rem; color: var(--cinza-medio); margin-top: -10px; margin-bottom: 10px;">Selecione quem participará da reunião:</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                      <label>Clientes</label>
+                      <div id="agenda-clientes-list" class="checkbox-list-container"></div>
+                    </div>
+                    <div class="form-group">
+                      <label>Equipe Interna</label>
+                      <div id="agenda-usuarios-list" class="checkbox-list-container"></div>
+                    </div>
+                </div>
               </div>
 
-              <!-- Linha 3: Local + Responsável (Exemplo) -->
+              <!-- Vínculos Gerais (Cliente e Processo) -->
+              <div id="bloco-vinculos" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                  <label for="agenda-cliente-single">Cliente Vinculado (Opcional)</label>
+                  <select id="agenda-cliente-single"></select>
+                </div>
+                <div class="form-group">
+                  <label>Processo Vinculado (Opcional)</label>
+                  <select id="agenda-processo"></select>
+                </div>
+              </div>
+
+              <!-- Linha 3: Local + Complemento -->
               <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
                 <div class="form-group">
                   <label>Local / Link</label>
                   <input type="text" id="agenda-local" placeholder="Ex: Fórum Central ou Sala Zoom" required>
                 </div>
                 <div class="form-group">
-                  <label>Complemento</label>
-                  <input type="text" id="agenda-extra" placeholder="Sala/Vara">
+                  <label>Complemento (Vara/Perito)</label>
+                  <input type="text" id="agenda-extra" placeholder="Ex: 5ª Vara Cível ou Dr. Carlos">
                 </div>
               </div>
 

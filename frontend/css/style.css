@@ -548,7 +548,7 @@ textarea:focus {
 .modal-content {
   background: var(--branco);
   width: 100%;
-  max-width: 800px; /* Aumentado para dar mais espaço lateral */
+  max-width: 900px; /* Aumentado ainda mais para layout horizontal */
   border-radius: 16px;
   box-shadow: var(--sombra-modal);
   animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -616,7 +616,7 @@ textarea:focus {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: #0f172a; /* Fundo base escuro */
+  background: radial-gradient(circle at center, #3d342b 0%, #1a1612 100%); /* Gradiente radial profundo e elegante */
   font-family: var(--fonte-principal);
   position: relative;
   overflow: hidden;
@@ -635,7 +635,7 @@ textarea:focus {
 .blob-1 {
   width: 500px;
   height: 500px;
-  background: #1e40af; /* Azul forte */
+  background: #b8860b; /* Dark Goldenrod - Dourado mais clássico */
   top: -100px;
   left: -100px;
 }
@@ -643,7 +643,7 @@ textarea:focus {
 .blob-2 {
   width: 400px;
   height: 400px;
-  background: #4f46e5; /* Roxo/Indigo */
+  background: #cd853f; /* Peru - Tom terroso dourado */
   bottom: -50px;
   right: -50px;
   animation-delay: -5s;
@@ -692,13 +692,20 @@ textarea:focus {
   margin-bottom: 24px;
 }
 
-.brand-logo i {
-  font-size: 3rem;
-  background: linear-gradient(135deg, var(--azul-medio) 0%, #1e3a8a 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 12px;
-  display: inline-block;
+.brand-logo img {
+  max-width: 240px; /* Aumentado para maior destaque */
+  height: auto;
+  margin-bottom: 16px;
+  border-radius: 8px; /* Leve arredondamento se necessário */
+  /* Opcional: Sombra suave para destacar o fundo branco sobre o cartão branco */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); 
+}
+
+/* Ajuste fino para harmonizar com o dourado da logo */
+.btn-login {
+  background: linear-gradient(135deg, #ca8a04 0%, #a16207 100%); /* Gradiente Dourado */
+  color: #fff;
+  border: none;
 }
 
 .brand-name {
@@ -759,16 +766,16 @@ textarea:focus {
   width: 100%;
   justify-content: center;
   padding: 14px;
-  font-size: 1rem;
-  background: linear-gradient(135deg, var(--azul-medio) 0%, #1d4ed8 100%);
+  font-size: 1.05rem;
+  font-weight: 600;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 12px rgba(202, 138, 4, 0.3);
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .btn-login:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 8px 20px rgba(202, 138, 4, 0.4);
 }
 
 /* Tela de Boas-vindas (Overlay) */
