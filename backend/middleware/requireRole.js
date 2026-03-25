@@ -1,31 +1,19 @@
 /*
- * Middleware para exigir role específica
- * Uso: app.get('/admin', requireRole('ADMIN'), handler)
+ * Middleware para validar níveis de acesso (RBAC)
+ * Uso: router.post('/', requireRole(['ADMIN', 'ADVOGADO']), routeHandler);
  */
-
-function requireRole(roleRequerida) {
+const requireRole = (allowedRoles) => {
   return (req, res, next) => {
-    if (!req.role) {
-      return res.status(403).json({ error: 'Role não encontrada' });
+    if (!req.user) {
+      return res.status(401).json({ error: 'Não autenticado' });
     }
 
-    // Hierarquia: ADMIN > ADVOGADO > ESTAGIARIO > ATENDENTE
-    const roleOrder = {
-      'ADMIN': 4,
-      'ADVOGADO': 3,
-      'ESTAGIARIO': 2,
-      'ATENDENTE': 1
-    };
-
-    if (roleOrder[req.role] < roleOrder[roleRequerida]) {
-      return res.status(403).json({ 
-        error: `Role '${roleRequerida}' necessária` 
-      });
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Acesso negado: permissão insuficiente' });
     }
 
     next();
   };
-}
+};
 
 module.exports = requireRole;
-

@@ -39,15 +39,44 @@ app.get('/', (req, res) => {
 // Seed: Garante usuários padrão ao iniciar
 require('./seed.js')();
 
-// Importa middleware
+// Importa middlewares
 const authMiddleware = require('./middleware/auth.js');
+// Sugestão de implementação futura: const requireRole = require('./middleware/requireRole.js');
 
 // Importa rotas
 const clientesRouter = require('./routes/clientes.js');
-app.use('/api/clientes', clientesRouter);
+app.use('/api/clientes', authMiddleware, clientesRouter);
 
 const processosRouter = require('./routes/processos.js');
-app.use('/api/processos', processosRouter);
+app.use('/api/processos', authMiddleware, processosRouter);
+
+const documentosRouter = require('./routes/documentos.js');
+app.use('/api/documentos', authMiddleware, documentosRouter);
+
+const publicacoesRouter = require('./routes/publicacoes.js');
+// Proteção de nível ADMIN para publicações
+app.use('/api/publicacoes', authMiddleware, (req, res, next) => {
+  // Verificação temporária inline até criar o middleware específico
+  if (req.user && req.user.role === 'ADMIN') return next();
+  return res.status(403).json({ error: 'Acesso negado: Requer privilégios de Administrador' });
+}, publicacoesRouter);
+
+// Middleware global de tratamento de erros
+app.use((err, req, res, next) => {
+  console.error('❌ Erro Crítico:', err.stack);
+  res.status(500).json({ 
+    error: 'Erro interno do servidor',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined 
+  });
+});
+
+// Inicializa Jobs Agendados (Cron)
+try {
+  const iniciarJobEscavador = require('./services/escavador-job.js');
+  iniciarJobEscavador();
+} catch (e) {
+  console.error('⚠️ Falha ao iniciar agendador:', e.message);
+}
 
 // 404 para rotas não encontradas
 app.use('*', (req, res) => {

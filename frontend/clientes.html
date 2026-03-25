@@ -38,8 +38,8 @@
             <div class="modal-body">
               <input type="hidden" id="cliente-id">
               
-              <!-- Linha 1: Dados Principais (4 colunas) -->
-              <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 120px; gap: 12px; margin-bottom: 12px;">
+              <!-- Linha 1: Dados Principais -->
+              <div class="form-grid-main">
                 <div class="form-group">
                   <label for="cliente-nome">Nome / Razão Social *</label>
                   <input type="text" id="cliente-nome" placeholder="Ex: João da Silva" required>
@@ -61,8 +61,8 @@
                 </div>
               </div>
 
-              <!-- Linha 2: Contato e Pessoais (4 colunas) -->
-              <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 0;">
+              <!-- Linha 2: Contato e Pessoais -->
+              <div class="form-grid-contact">
                 <div class="form-group">
                   <label for="cliente-email">E-mail</label>
                   <input type="email" id="cliente-email" placeholder="email@exemplo.com">
@@ -76,9 +76,9 @@
               </div>
 
               <!-- Seção Endereço Compacta -->
-              <h3 style="font-size: 0.85rem; color: var(--azul-escuro); margin: 12px 0 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Endereço</h3>
+              <h3 class="section-title">Endereço</h3>
               
-              <div style="display: grid; grid-template-columns: 100px 1fr 80px 1fr 150px 60px; gap: 12px;">
+              <div class="form-grid-endereco">
                 <div class="form-group"><label>CEP</label><input type="text" id="cliente-cep"></div>
                 <div class="form-group"><label>Logradouro</label><input type="text" id="cliente-endereco"></div>
                 <div class="form-group"><label>Número</label><input type="text" id="cliente-numero"></div>
@@ -88,13 +88,13 @@
               </div>
 
               <!-- Seção Previdenciário Compacta -->
-              <h3 style="font-size: 0.85rem; color: var(--azul-escuro); margin: 12px 0 8px; border-bottom: 1px solid #eee; padding-bottom: 4px;">Acesso INSS / GOV.BR</h3>
+              <h3 class="section-title">Acesso INSS / GOV.BR</h3>
               
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                <div class="form-group" style="margin-bottom:0"><label>Login (CPF)</label><input type="text" id="cliente-inss-cpf" disabled style="background-color: #f8fafc; color: var(--cinza-medio);"></div>
-                <div class="form-group" style="margin-bottom:0"><label>Senha Meu INSS</label><input type="text" id="cliente-inss-senha" placeholder="Senha de acesso"></div>
+              <div class="form-grid-inss">
+                <div class="form-group"><label>Login (CPF)</label><input type="text" id="cliente-inss-cpf" disabled></div>
+                <div class="form-group"><label>Senha Meu INSS</label><input type="text" id="cliente-inss-senha" placeholder="Senha de acesso"></div>
               </div>
-              <p style="font-size: 0.75rem; color: var(--cinza-medio); margin-top: 4px; margin-bottom: 0;"><i class="fa-solid fa-lock"></i> Dados armazenados para uso exclusivo do escritório.</p>
+              <p class="form-note"><i class="fa-solid fa-lock"></i> Dados armazenados para uso exclusivo do escritório.</p>
             </div>
 
             <div class="modal-footer">

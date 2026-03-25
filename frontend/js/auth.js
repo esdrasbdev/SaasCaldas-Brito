@@ -66,6 +66,11 @@ async function login(email, password) {
     
     if (error) throw error;
     
+    // Salva o JWT para as chamadas de API do backend
+    if (data.session) {
+      localStorage.setItem('supabaseToken', data.session.access_token);
+    }
+
     // Após login, busca role na tabela usuarios
     await fetchUserRole();
     
@@ -82,6 +87,7 @@ async function logout() {
   try {
     // Limpa localStorage
     localStorage.removeItem('userRole');
+    localStorage.removeItem('supabaseToken');
     localStorage.removeItem('userName');
     currentUserRole = null;
     

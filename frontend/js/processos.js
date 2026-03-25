@@ -36,6 +36,15 @@ const ProcessoModel = {
       .insert([processo]);
     if (error) throw error;
     return true;
+  },
+
+  async atualizar(id, dados) {
+    const { error } = await supabase
+      .from('processos')
+      .update(dados)
+      .eq('id', id);
+    if (error) throw error;
+    return true;
   }
 };
 
@@ -53,6 +62,12 @@ const ProcessoView = {
     this.container.innerHTML = `
       <div class="card-section">
         <div style="display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
+          <!-- Modal Inject -->
+          <style>
+            /* Pequeno ajuste para garantir que o input hidden não atrapalhe */
+            #proc-id { display: none; }
+          </style>
+          
           <div style="flex: 1;">
             <input type="text" id="busca-processo" placeholder="Buscar por CNJ, Cliente ou Vara...">
           </div>
@@ -119,6 +134,7 @@ const ProcessoView = {
         <td>${new Date(p.criado_em).toLocaleDateString('pt-BR')}</td>
         <td style="text-align: right;">
           <a href="processo-detalhe.html?id=${p.id}" class="btn-sm" title="Ver Detalhes"><i class="fa-solid fa-eye"></i></a>
+          <button class="btn-sm btn-edit" data-id="${p.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
           ${isAdmin ? `<button class="btn-sm btn-delete" data-id="${p.id}" title="Excluir" style="color: #ef4444;"><i class="fa-solid fa-trash"></i></button>` : ''}
         </td>
       </tr>
@@ -131,11 +147,38 @@ const ProcessoView = {
 
   abrirModal() {
     this.modal.style.display = 'flex';
+    // Se não tiver o campo hidden ainda, cria (segurança caso o HTML base não tenha)
+    if (!document.getElementById('proc-id')) {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.id = 'proc-id';
+        this.form.appendChild(hiddenInput);
+    }
   },
 
   fecharModal() {
     this.modal.style.display = 'none';
     this.form.reset();
+    if (document.getElementById('proc-id')) document.getElementById('proc-id').value = '';
+    // Reseta título se houver
+    const h2 = this.modal.querySelector('h2');
+    if(h2) h2.textContent = 'Novo Processo';
+  },
+
+  preencherFormulario(processo) {
+    this.abrirModal();
+    // Atualiza título visualmente
+    const h2 = this.modal.querySelector('h2');
+    if(h2) h2.textContent = 'Editar Processo';
+
+    document.getElementById('proc-id').value = processo.id;
+    document.getElementById('proc-cnj').value = processo.numero_cnj || '';
+    document.getElementById('proc-tribunal').value = processo.tribunal || '';
+    document.getElementById('proc-vara').value = processo.vara || '';
+    
+    if (processo.cliente_id) {
+      document.getElementById('proc-cliente').value = processo.cliente_id;
+    }
   },
 
   preencherSelectClientes(clientes) {
@@ -168,13 +211,23 @@ const ProcessoController = {
     
     ProcessoView.form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const id = document.getElementById('proc-id') ? document.getElementById('proc-id').value : null;
+      
+      const payload = {
+        numero_cnj: document.getElementById('proc-cnj').value,
+        tribunal: document.getElementById('proc-tribunal').value,
+        vara: document.getElementById('proc-vara').value,
+        cliente_id: document.getElementById('proc-cliente').value || null
+      };
+
       try {
-        await ProcessoModel.criar({
-          numero_cnj: document.getElementById('proc-cnj').value,
-          tribunal: document.getElementById('proc-tribunal').value,
-          vara: document.getElementById('proc-vara').value,
-          cliente_id: document.getElementById('proc-cliente').value
-        });
+        if (id) {
+            await ProcessoModel.atualizar(id, payload);
+            ProcessoView.mostrarErro('Processo atualizado!'); // Usando alert padrão da view
+        } else {
+            await ProcessoModel.criar(payload);
+        }
+        
         ProcessoView.fecharModal();
         await this.carregarDados();
       } catch(err) { alert('Erro ao criar: ' + err.message); }
@@ -203,11 +256,19 @@ const ProcessoController = {
 
     document.getElementById('lista-processos-body').addEventListener('click', async (e) => {
       const btnDelete = e.target.closest('.btn-delete');
+      const btnEdit = e.target.closest('.btn-edit');
+
       if (btnDelete) {
         const id = btnDelete.dataset.id;
         if (confirm('Tem certeza? Isso apagará o processo e históricos relacionados.')) {
           await this.deletarProcesso(id);
         }
+      }
+
+      if (btnEdit) {
+        const id = btnEdit.dataset.id;
+        const processo = this.dadosLocais.find(p => p.id === id);
+        if (processo) ProcessoView.preencherFormulario(processo);
       }
     });
   },

@@ -19,7 +19,7 @@ async function carregarProcesso() {
     .select(`
       *,
       clientes(nome),
-      usuarios!advogado_id(nome)
+      usuarios(nome)
     `)
     .eq('id', processoId)
     .single();

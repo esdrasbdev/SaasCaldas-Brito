@@ -44,11 +44,11 @@ const AgendaModel = {
           id: p.id,
           tipo: 'PERICIA',
           data: p.data,
-          titulo: `Perícia: ${p.perito || 'Técnica'}`,
+          titulo: `Perícia ${p.tipo || ''}: ${p.perito || 'Técnica'}`,
           local: p.local,
           processo: p.processos?.numero_cnj || 'S/N',
           cliente: p.clientes?.nome || p.processos?.clientes?.nome || '-',
-          obs: p.local // Perícias usam local/perito
+          obs: p.tipo === 'Judicial' ? `Tribunal: ${p.tribunal} - Vara: ${p.vara}` : p.local
         });
       });
     }

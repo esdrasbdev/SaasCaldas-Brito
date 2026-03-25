@@ -3,7 +3,7 @@
  * Separação clara entre Dados (Supabase), Interface (DOM) e Regras de Negócio
  */
 
-import { supabase } from './supabase.js';
+import { supabase, getApiUrl } from './supabase.js';
 import { AuthAPI } from './auth.js';
 import { showToast } from './utils.js'; // Novo sistema de avisos
 
@@ -78,6 +78,24 @@ const ClienteModel = {
     
     if (error) throw error;
     return true;
+  },
+
+  async listarDocumentos(clienteId) {
+    // Busca o token atualizado da sessão para evitar erro 401
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    const res = await fetch(`${getApiUrl()}/documentos?cliente_id=${clienteId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (res.status === 401) {
+      showToast('Sessão expirada. Por favor, saia e entre novamente.', 'error');
+      return [];
+    }
+
+    if (!res.ok) throw new Error('Falha ao buscar documentos');
+    return await res.json();
   }
 };
 
@@ -173,14 +191,49 @@ const ClienteView = {
       this.elementos.form.classList.remove('mode-view');
     }
 
-    // Reseta estado dos inputs (habilita tudo primeiro)
+    const modalHeader = this.elementos.modal.querySelector('.modal-header');
+    const modalBody = this.elementos.modal.querySelector('.modal-body');
+    const modalFooter = this.elementos.modal.querySelector('.modal-footer');
+
+    // Formatação do Cabeçalho: Título à esquerda, Botão à direita
+    if (modalHeader && !modalHeader.querySelector('.btn-close-modal')) {
+      modalHeader.style.display = 'flex';
+      modalHeader.style.justifyContent = 'space-between';
+      modalHeader.style.alignItems = 'center';
+
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'btn-close-modal';
+      closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      closeBtn.style.cssText = 'background:none; border:none; color:var(--cinza-medio); cursor:pointer; font-size:1.4rem; padding:5px; transition: color 0.2s;';
+      closeBtn.onmouseover = () => closeBtn.style.color = '#ef4444';
+      closeBtn.onmouseout = () => closeBtn.style.color = 'var(--cinza-medio)';
+      closeBtn.onclick = () => this.fecharModal();
+      modalHeader.appendChild(closeBtn);
+    }
+
+    // Reseta estado dos inputs
     const inputs = this.elementos.form.querySelectorAll('input, select');
     inputs.forEach(el => {
       el.disabled = visualizacao;
       el.classList.remove('input-error');
     });
 
-    // Controla botão de salvar
+    // Posicionamento da seção de documentos: deve ficar no final do modal-body, antes do footer
+    let containerDocs = document.getElementById('documentos-lista-container');
+    if (!containerDocs) {
+      containerDocs = document.createElement('div');
+      containerDocs.id = 'documentos-lista-container';
+    }
+
+    // Se o modalBody existir, anexamos os documentos nele para que o footer (abaixo dele) fique sempre na base
+    if (modalBody) {
+      modalBody.appendChild(containerDocs);
+    }
+
+    containerDocs.style.marginTop = '20px';
+    containerDocs.style.borderTop = '2px solid var(--azul-claro)';
+
     const btnSalvar = this.elementos.form.querySelector('button[type="submit"]');
     if (btnSalvar) btnSalvar.style.display = visualizacao ? 'none' : 'block';
 
@@ -206,11 +259,76 @@ const ClienteView = {
       // Previdenciário
       document.getElementById('cliente-inss-senha').value = cliente.inss_senha || '';
       document.getElementById('cliente-inss-cpf').value = cliente.documento || '';
+
+      this.renderizarSessaoDocumentos(cliente.id, visualizacao);
+      // Ajuste para garantir que a seção de documentos não quebre o grid dos inputs
+      containerDocs.style.order = "99"; 
     } else {
       document.getElementById('cliente-inss-cpf').value = '';
+      // Chama renderização mesmo sem ID para mostrar o cabeçalho e a mensagem de "Salvar Primeiro"
+      this.renderizarSessaoDocumentos(null, false);
+    }
+    this.elementos.modal.style.display = 'flex';
+  },
+
+  async renderizarSessaoDocumentos(clienteId, visualizacao) {
+    const container = document.getElementById('documentos-lista-container');
+    if (!container) return;
+
+    // Se não houver clienteId, estamos criando um novo cliente
+    if (!clienteId) {
+      container.innerHTML = `
+        <div style="padding-top: 15px;">
+          <h3 style="font-size: 1rem; color: var(--azul-medio); margin-bottom: 10px; border-bottom: 2px solid var(--azul-claro); padding-bottom: 5px;">
+            <i class="fa-solid fa-paperclip"></i> Documentos do Cliente
+          </h3>
+          <div style="background: var(--azul-claro); color: var(--azul-medio); padding: 15px; border-radius: 8px; text-align: center; font-size: 0.9rem; font-weight: 500;">
+            <i class="fa-solid fa-circle-info"></i> Para anexar documentos, primeiro salve os dados básicos do cliente.
+          </div>
+        </div>`;
+      return;
     }
 
-    this.elementos.modal.style.display = 'flex'; // Flex para centralizar
+    container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--cinza-medio);"><i class="fa-solid fa-spinner fa-spin"></i> Carregando arquivos...</div>';
+
+    try {
+      const docs = await ClienteModel.listarDocumentos(clienteId);
+      
+      let html = `
+        <div style="padding-top: 15px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 style="font-size: 1rem; color: var(--azul-medio); margin-bottom: 0; border-bottom: 2px solid var(--azul-claro); padding-bottom: 5px; flex: 1;">
+              <i class="fa-solid fa-paperclip"></i> Documentos do Cliente
+            </h3>
+            ${!visualizacao ? `<label class="btn-primary" style="cursor: pointer; padding: 8px 16px; border-radius: 6px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-cloud-arrow-up"></i> Anexar Arquivo
+              <input type="file" id="upload-doc-cliente" style="display: none;" data-cliente="${clienteId}">
+            </label>` : ''}
+          </div>
+          <table class="recent-table" style="font-size: 0.85rem; width: 100%; background: #fff; border: 1px solid var(--cinza-borda); border-radius: 8px; overflow: hidden;">
+            <thead><tr><th>Arquivo</th><th style="text-align: right;">Ações</th></tr></thead>
+            <tbody>
+              ${docs.length === 0 ? '<tr><td colspan="2" class="text-center">Nenhum documento.</td></tr>' : 
+                docs.map(d => `
+                <tr>
+                  <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <i class="fa-solid fa-file-pdf" style="margin-right: 8px; color: #ef4444;"></i> ${d.nome}
+                  </td>
+                  <td style="text-align: right;">
+                    <a href="${d.url}" target="_blank" class="btn-sm" title="Ver"><i class="fa-solid fa-eye"></i></a>
+                    <a href="${d.url}" download class="btn-sm" title="Baixar"><i class="fa-solid fa-download"></i></a>
+                    ${!visualizacao ? `<button class="btn-sm btn-del-doc" data-id="${d.id}" data-cliente="${clienteId}" style="color: #ef4444;"><i class="fa-solid fa-trash"></i></button>` : ''}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+      container.innerHTML = html;
+    } catch (err) {
+      container.innerHTML = '<p class="text-danger">Erro ao carregar documentos.</p>';
+    }
   },
 
   fecharModal() {
@@ -292,6 +410,68 @@ const ClienteController = {
         }
       }
     });
+
+    // Listener para Upload de Documento dentro do Modal
+    document.body.addEventListener('change', async (e) => {
+      if (e.target.id === 'upload-doc-cliente') {
+        const file = e.target.files[0];
+        const clienteId = e.target.dataset.cliente;
+        if (!file || !clienteId) return;
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
+            const res = await fetch(`${getApiUrl()}/documentos/upload`, {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                nome: file.name,
+                tipo: file.type,
+                arquivo: reader.result,
+                cliente_id: clienteId
+              })
+            });
+
+            if (res.ok) {
+              showToast('Arquivo anexado!', 'success');
+              ClienteController.atualizarSessaoDocumentos(clienteId);
+            }
+          } catch (err) { showToast('Erro no upload', 'error'); }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Listener para Exclusão de Documento dentro do Modal
+    document.body.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.btn-del-doc');
+      if (btn && confirm('Deseja excluir este documento?')) {
+        const id = btn.dataset.id;
+        const clienteId = btn.dataset.cliente;
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        const res = await fetch(`${getApiUrl()}/documentos/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+          showToast('Arquivo removido', 'success');
+          ClienteController.atualizarSessaoDocumentos(clienteId);
+        }
+      }
+    });
+  },
+
+  atualizarSessaoDocumentos(clienteId) {
+    ClienteView.renderizarSessaoDocumentos(clienteId, false);
   },
 
   async carregarDados() {
@@ -307,22 +487,30 @@ const ClienteController = {
   async salvarCliente() {
     const id = document.getElementById('cliente-id').value;
     
-    // Coleta valores tratando strings vazias como null para evitar erros de banco
-    const getVal = (eid) => document.getElementById(eid).value.trim() || null;
+    // Helper para garantir integridade de dados (Sanitização)
+    const getVal = (eid) => {
+      const el = document.getElementById(eid);
+      if (!el) return null;
+      const val = el.value.trim();
+      // Campos UUID ou Datas no Postgres não aceitam string vazia ""
+      return val === "" ? null : val;
+    };
     
     // Pega o usuário logado para registrar quem criou
     const { data: { user } } = await supabase.auth.getUser();
     
-    // Busca o ID interno do usuário na tabela pública 'usuarios' (pode ser diferente do Auth ID)
-    let usuarioIdCorreto = null;
+    // Busca o ID interno do usuário na tabela pública 'usuarios' 
+    // Isso previne erro de Foreign Key se o Auth ID for diferente do ID da tabela
+    let usuarioIdReferencia = null;
     if (user && user.email) {
       const { data: usuarioPublico } = await supabase
         .from('usuarios')
         .select('id')
+        .eq('ativo', true) // Apenas usuários ativos podem registrar
         .eq('email', user.email)
         .single();
       
-      if (usuarioPublico) usuarioIdCorreto = usuarioPublico.id;
+      if (usuarioPublico) usuarioIdReferencia = usuarioPublico.id;
     }
 
     // Prepara objeto APENAS com colunas que existem no banco para evitar erro PGRST204
@@ -333,8 +521,8 @@ const ClienteController = {
       documento: getVal('cliente-documento'),
       email: getVal('cliente-email'),
       telefone: getVal('cliente-telefone'),
-      usuario_id: usuarioIdCorreto, // Usa o ID da tabela usuarios para garantir integridade referencial
-      inss_senha: getVal('cliente-inss-senha') // Novo campo
+      inss_senha: getVal('cliente-inss-senha'), // Novo campo
+      usuario_id: usuarioIdReferencia // Vínculo de auditoria corrigido aqui
     };
 
     // Validação Obrigatória Dinâmica

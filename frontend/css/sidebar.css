@@ -18,22 +18,35 @@
 .sidebar-header {
   padding: 24px;
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 12px;
   border-bottom: 1px solid var(--cinza-fundo);
 }
 
-.sidebar-header i {
-  font-size: 1.5rem;
-  color: var(--azul-medio);
+.brand-logo-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
-.sidebar-header h2 {
-  font-size: 1.1rem;
+.brand-logo-text span {
+  font-family: 'Playfair Display', serif, var(--fonte-principal); /* Ideal ter uma fonte serifada importada, senão usa fallback */
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--azul-escuro);
-  margin: 0;
   letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.brand-logo-text small {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  color: var(--azul-medio);
+  margin-top: 4px;
+  font-weight: 600;
 }
 
 /* Navegação (Links) */
@@ -69,6 +82,7 @@
 .nav-item:hover {
   background-color: var(--azul-claro);
   color: var(--azul-medio);
+  transform: translateX(4px); /* Movimento sutil para a direita */
 }
 
 .nav-item:hover i {
@@ -81,11 +95,40 @@
   font-weight: 600;
 }
 
+/* Grupos de itens (Título de seção) */
+.sidebar-header-group {
+  padding: 24px 16px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--cinza-medio);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 /* Rodapé da Sidebar (Perfil do Usuário) */
 .sidebar-footer {
   padding: 16px;
   border-top: 1px solid var(--cinza-borda);
   background-color: transparent; /* Remove fundo para manter consistência na troca de tema */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.btn-theme-inline {
+  background: none;
+  border: none;
+  color: var(--cinza-medio);
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 4px;
+}
+
+.btn-theme-inline:hover {
+  background: var(--cinza-fundo);
+  color: var(--azul-medio);
 }
 
 .user-profile {
@@ -116,7 +159,7 @@
 .user-name {
   display: block;
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--azul-escuro);
   white-space: nowrap;
   overflow: hidden;

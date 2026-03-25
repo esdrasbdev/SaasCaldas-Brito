@@ -25,16 +25,33 @@ const view = {
     }
     
     let html = `<div class="card-section"><div class="table-responsive"><table class="recent-table">
-      <thead><tr><th>Cliente</th><th>Data</th><th>Resumo</th><th>Usuário</th>${isAdmin ? '<th>Ações</th>' : ''}</tr></thead><tbody>`;
+      <thead><tr><th>Data / Canal</th><th>Cliente / Assunto</th><th>Resumo</th><th>Responsável</th>${isAdmin ? '<th style="text-align:right">Ações</th>' : ''}</tr></thead><tbody>`;
       
-    html += dados.map(d => `
+    html += dados.map(d => {
+      // Define ícone e cor baseado no canal
+      let iconClass = 'fa-comments';
+      let colorStyle = 'color: #64748b';
+      if (d.canal === 'WhatsApp') { iconClass = 'fa-whatsapp'; colorStyle = 'color: #25D366'; }
+      else if (d.canal === 'Telefone') { iconClass = 'fa-phone'; colorStyle = 'color: #3b82f6'; }
+      else if (d.canal === 'E-mail') { iconClass = 'fa-envelope'; colorStyle = 'color: #f59e0b'; }
+      else if (d.canal === 'Presencial') { iconClass = 'fa-handshake'; colorStyle = 'color: #7c3aed'; }
+      else if (d.canal === 'Videoconferência') { iconClass = 'fa-video'; colorStyle = 'color: #0ea5e9'; }
+
+      return `
       <tr>
-        <td><strong>${d.clientes?.nome || 'N/A'}</strong></td>
-        <td>${new Date(d.data).toLocaleString('pt-BR')}</td>
-        <td>${d.anotacoes}</td>
-        <td><small class="status-badge prazo-verde">${d.usuarios?.nome || 'Sistema'}</small></td>
-        ${isAdmin ? `<td><button class="btn-sm btn-delete" data-id="${d.id}" style="color: #ef4444;"><i class="fa-solid fa-trash"></i></button></td>` : ''}
-      </tr>`).join('');
+        <td style="width: 140px;">
+          <div style="font-weight: 600;">${new Date(d.data).toLocaleDateString('pt-BR')}</div>
+          <div style="font-size: 0.85rem; margin-top: 4px; ${colorStyle}"><i class="fa-brands ${iconClass} fa-fw"></i> ${d.canal || 'Geral'}</div>
+        </td>
+        <td>
+          <strong style="color: var(--azul-escuro);">${d.clientes?.nome || 'Cliente N/A'}</strong>
+          <div style="font-size: 0.9rem; color: var(--cinza-escuro); margin-top: 2px; font-weight: 500;">${d.titulo || 'Sem assunto'}</div>
+        </td>
+        <td style="max-width: 300px;"><div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--cinza-medio);" title="${d.anotacoes}">${d.anotacoes || '-'}</div></td>
+        <td><small class="status-badge" style="background:#f1f5f9; color:#475569;">${d.usuarios?.nome ? d.usuarios.nome.split(' ')[0] : 'Sistema'}</small></td>
+        ${isAdmin ? `<td style="text-align: right;"><button class="btn-sm btn-delete" data-id="${d.id}" style="color: #ef4444;" title="Excluir"><i class="fa-solid fa-trash"></i></button></td>` : ''}
+      </tr>`;
+    }).join('');
       
     html += `</tbody></table></div></div>`;
     this.container.innerHTML = html;
@@ -74,7 +91,10 @@ const controller = {
     
     const novo = {
       cliente_id: document.getElementById('atend-cliente').value,
+      titulo: document.getElementById('atend-titulo').value,
       data: document.getElementById('atend-data').value,
+      canal: document.getElementById('atend-canal').value,
+      duracao: document.getElementById('atend-duracao').value,
       anotacoes: document.getElementById('atend-anotacoes').value,
       usuario_id: usuarioDB?.id
     };

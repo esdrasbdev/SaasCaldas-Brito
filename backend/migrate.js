@@ -27,7 +27,7 @@ async function runMigration() {
   console.log('ℹ️ Para rodar o SQL sem abrir o painel visual, você precisa de acesso direto ao banco via terminal psql ou conexão string.');
   
   console.log('\n📋 COPIE E COLE ESTE COMANDO NO TERMINAL (se tiver psql instalado):');
-  console.log(`psql "postgresql://postgres:[SUA-SENHA]@db.[SEU-PROJETO].supabase.co:5432/postgres" -c "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS inss_senha text;"`);
+  console.log(`psql "postgresql://postgres:[SUA-SENHA]@db.[SEU-PROJETO].supabase.co:5432/postgres" -c "ALTER TABLE pericias ADD COLUMN IF NOT EXISTS usuario_id UUID REFERENCES usuarios(id); ALTER TABLE audiencias ADD COLUMN IF NOT EXISTS usuario_id UUID REFERENCES usuarios(id); ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS titulo text; ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS canal text; ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS duracao text;"`);
   
   console.log('\nOU use a interface SQL do Supabase. Não há outra forma segura via código frontend/JS puro.');
   

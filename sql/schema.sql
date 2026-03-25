@@ -24,6 +24,17 @@ create table clientes (
   email text,
   telefone text,
   area_juridica text,
+  usuario_id uuid references usuarios(id),
+  nacionalidade text,
+  estado_civil text,
+  profissao text,
+  cep text,
+  endereco text,
+  numero text,
+  bairro text,
+  cidade text,
+  estado text,
+  inss_senha text,
   criado_em timestamptz default now()
 );
 
@@ -55,6 +66,9 @@ create table pericias (
   id uuid primary key default gen_random_uuid(),
   processo_id uuid references processos(id),
   data timestamptz,
+  tipo text check (tipo in ('Administrativa', 'Judicial')),
+  tribunal text,
+  vara text,
   local text,
   perito text,
   etapas jsonb default '[]'::jsonb

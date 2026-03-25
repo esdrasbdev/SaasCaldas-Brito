@@ -1,49 +1,35 @@
-/* 
- * Middleware de autenticação Supabase para APIs backend
- * Valida JWT do header Authorization: Bearer <token>
- * Busca role do usuário na tabela usuarios
+/*
+ * Middleware de Autenticação Global
+ * Valida o JWT do Supabase e anexa o usuário da tabela 'usuarios' ao req.user
  */
+const supabase = require('../supabase');
 
-const supabase = require('../supabase.js');
+const authMiddleware = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'Token não fornecido' });
 
-function createAuthMiddleware() {
-  return async (req, res, next) => {
-    try {
-      // Extrai token do header
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Token não fornecido' });
-      }
+  const token = authHeader.split(' ')[1];
 
-      const token = authHeader.substring(7);
+  try {
+    // 1. Valida a sessão com o Supabase Auth
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) throw new Error('Sessão inválida');
 
-      // Verifica sessão com token
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      if (authError || !user) {
-        return res.status(401).json({ error: 'Token inválido' });
-      }
+    // 2. Busca os dados estendidos (Role) na tabela de usuários
+    const { data: dbUser, error: dbError } = await supabase
+      .from('usuarios')
+      .select('id, email, role, nome')
+      .eq('email', user.email)
+      .single();
 
-      // Busca role na tabela usuarios
-      const { data: usuario, error: roleError } = await supabase
-        .from('usuarios')
-        .select('role')
-        .eq('email', user.email)
-        .single();
+    if (dbError || !dbUser) throw new Error('Usuário não encontrado no cadastro');
 
-      if (roleError || !usuario) {
-        return res.status(403).json({ error: 'Usuário não encontrado' });
-      }
+    // Anexa ao request para uso nas rotas e outros middlewares
+    req.user = dbUser;
+    next();
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+};
 
-      // Anexa user/role ao req
-      req.user = user;
-      req.role = usuario.role;
-
-      next();
-    } catch (error) {
-      console.error('Erro middleware auth:', error);
-      res.status(500).json({ error: 'Erro interno de autenticação' });
-    }
-  };
-}
-
-module.exports = createAuthMiddleware();
+module.exports = authMiddleware;
