@@ -21,7 +21,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 export const getApiUrl = () => {
   return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:3001/api'
-    : 'https://sua-api-no-railway.app/api'; // Substituir após o deploy
+    : '/api'; // Na Vercel, usamos caminhos relativos para a mesma URL
 };
 
 // Compatibilidade para chamadas que esperam uma Promise de inicialização (ex: login.html)

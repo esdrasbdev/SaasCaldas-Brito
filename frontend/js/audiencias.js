@@ -209,6 +209,9 @@ const AudienciaController = {
       
       const dataStr = document.getElementById('aud-data').value;
       const horaStr = document.getElementById('aud-hora').value;
+      
+      // Criamos o objeto Date garantindo que o navegador entenda como hora local
+      // O uso do construtor Date com string YYYY-MM-DDTHH:mm sem sufixo 'Z' assume local
       const dataIso = new Date(`${dataStr}T${horaStr}`).toISOString();
 
       // Recupera ID do usuário atual para ser o "advogado_id"

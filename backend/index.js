@@ -53,6 +53,18 @@ app.use('/api/processos', authMiddleware, processosRouter);
 const documentosRouter = require('./routes/documentos.js');
 app.use('/api/documentos', authMiddleware, documentosRouter);
 
+const audienciasRouter = require('./routes/audiencias.js');
+app.use('/api/audiencias', authMiddleware, audienciasRouter);
+
+const periciasRouter = require('./routes/pericias.js');
+app.use('/api/pericias', authMiddleware, periciasRouter);
+
+const atendimentosRouter = require('./routes/atendimentos.js');
+app.use('/api/atendimentos', authMiddleware, atendimentosRouter);
+
+const usuariosRouter = require('./routes/usuarios.js');
+app.use('/api/usuarios', authMiddleware, usuariosRouter);
+
 const publicacoesRouter = require('./routes/publicacoes.js');
 // Proteção de nível ADMIN para publicações
 app.use('/api/publicacoes', authMiddleware, (req, res, next) => {
@@ -60,6 +72,10 @@ app.use('/api/publicacoes', authMiddleware, (req, res, next) => {
   if (req.user && req.user.role === 'ADMIN') return next();
   return res.status(403).json({ error: 'Acesso negado: Requer privilégios de Administrador' });
 }, publicacoesRouter);
+
+// Rota de Webhook do Escavador (Sem authMiddleware pois vem da API externa)
+const escavadorRouter = require('./routes/escavador-webhook.js');
+app.use('/api/escavador/webhook', escavadorRouter);
 
 // Middleware global de tratamento de erros
 app.use((err, req, res, next) => {
@@ -71,23 +87,27 @@ app.use((err, req, res, next) => {
 });
 
 // Inicializa Jobs Agendados (Cron)
-try {
-  const iniciarJobEscavador = require('./services/escavador-job.js');
-  iniciarJobEscavador();
-} catch (e) {
-  console.error('⚠️ Falha ao iniciar agendador:', e.message);
+// Desativado em ambientes serverless (Vercel) para evitar bloqueios
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  try {
+    const iniciarJobEscavador = require('./services/escavador-job.js');
+    iniciarJobEscavador();
+  } catch (e) {
+    console.error('⚠️ Falha ao iniciar agendador local:', e.message);
+  }
 }
-
 // 404 para rotas não encontradas
 app.use('*', (req, res) => {
   res.status(404).json({ error: 'Rota não encontrada' });
 });
 
 // Inicialização do servidor com log claro
-app.listen(PORT, () => {
-  console.log(`🚀 Backend Jurídico rodando em http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log('💡 Próximo passo: npm install && npm run dev');
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Backend Jurídico rodando em http://localhost:${PORT}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/health`);
+    console.log('💡 Próximo passo: npm install && npm run dev');
+  });
+}
 
 module.exports = app;

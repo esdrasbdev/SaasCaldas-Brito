@@ -44,8 +44,12 @@ const JuditService = {
       for (const [oab, responsavel] of Object.entries(OAB_MAP)) {
         try {
           console.log(`running: Buscando publicações para ${oab} (${responsavel})...`);
-          await this.buscarPublicacoesPorOab(oab, responsavel);
-          totalProcessadas++;
+          const sucesso = await this.buscarPublicacoesPorOab(oab, responsavel);
+          if (sucesso) {
+            totalProcessadas++;
+          } else {
+            falhas++;
+          }
           
           // Inteligência de Rate Limiting: 
           // Evita bloqueio da conta Judit por excesso de chamadas em sequência
@@ -85,7 +89,10 @@ const JuditService = {
             })
         });
 
-        if (!response.ok) throw new Error(`Erro API Judit (${response.status}): ${response.statusText}`);
+        if (!response.ok) {
+          const errorBody = await response.text();
+          throw new Error(`API Judit respondeu com erro ${response.status}: ${errorBody || response.statusText}`);
+        }
         
         const json = await response.json();
         // Judit geralmente retorna { data: [...] } ou { results: [...] }
@@ -95,9 +102,10 @@ const JuditService = {
         for (const pub of publicacoes) {
             await this.processarPublicacao(pub, oab, responsavel);
         }
-
+        return true;
       } catch (error) {
-        console.error(`Erro ao buscar OAB ${oab}:`, error.message);
+        console.error(`❌ Falha na conexão/busca da OAB ${oab}:`, error.message);
+        return false;
       }
   },
 

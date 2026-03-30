@@ -66,18 +66,12 @@ btnNovaPericia.addEventListener('click', () => {
   // Garante que o modal-body tenha o grid para melhor visualização
   const modalBody = formPericia.querySelector('.modal-body');
   if (modalBody) {
-    modalBody.style.display = 'grid';
-    modalBody.style.gridTemplateColumns = 'repeat(2, 1fr)'; // 2 colunas para perícias
-    modalBody.style.gap = '15px 20px';
-    modalBody.style.overflowY = 'auto';
-    modalBody.style.flex = '1 1 auto';
-    modalBody.style.padding = '25px';
-
-    // Estilização compacta para todos os inputs dentro do modal
-    const allLabels = modalBody.querySelectorAll('label');
-    allLabels.forEach(l => l.style.cssText = 'font-size: 0.75rem; margin-bottom: 2px; display: block; font-weight: 600; color: var(--azul-escuro); text-transform: uppercase;');
-    const allInputs = modalBody.querySelectorAll('input, select, textarea');
-    allInputs.forEach(i => i.style.cssText = 'width: 100%; padding: 6px 10px; border: 1px solid var(--cinza-borda); border-radius: 4px; font-size: 0.85rem;');
+    // Em vez de style.cssText, adicione uma classe CSS definida no style.css
+    modalBody.classList.add('modal-grid-layout');
+    
+    // Dica: No seu style.css, crie:
+    // .modal-grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    // .modal-grid-layout label { font-size: 0.75rem; font-weight: 600; ... }
   }
   document.getElementById('campos-judiciais').style.display = 'none';
   document.querySelector('.modal-header h2').textContent = 'Agendar Nova Perícia';
@@ -178,10 +172,15 @@ formPericia.addEventListener('submit', async (e) => {
   const tipo = getVal('pericia-tipo');
   // Vara e Tribunal não são mais obrigatórios, apenas aparecem
 
+  const dataInput = document.getElementById('pericia-data').value;
+  // Interpretamos a data digitada como local antes de enviar ao banco
+  // Isso evita que o banco assuma UTC e cause o atraso de 3 horas
+  const dataIso = dataInput ? new Date(dataInput).toISOString() : null;
+
   const novaPericia = {
     cliente_id: getVal('cliente-select'),
     usuario_id: usuarioId,
-    data: getVal('pericia-data'),
+    data: dataIso,
     tipo: tipo,
     tribunal: getVal('pericia-tribunal'),
     vara: getVal('pericia-vara'),

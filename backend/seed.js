@@ -14,28 +14,47 @@ async function seedUsers() {
 
   for (const u of users) {
     // 1. Criar Login (Supabase Auth)
-    // Usa a API de Admin para criar já confirmado e sem enviar email
-    const { error: authError } = await supabase.auth.admin.createUser({
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: u.email,
       password: u.pass,
       email_confirm: true,
       user_metadata: { nome: u.nome }
     });
 
-    if (authError && !authError.message.includes('already registered')) {
-      console.error(`Erro Auth [${u.email}]:`, authError.message);
+    let userId = authData?.user?.id;
+
+    if (authError) {
+      if (authError.message.includes('already registered')) {
+        // Se já existe no Auth, precisamos buscar o ID dele
+        const { data: list } = await supabase.auth.admin.listUsers();
+        const existing = list.users.find(au => au.email.toLowerCase() === u.email.toLowerCase());
+        userId = existing?.id;
+      } else {
+        console.error(`Erro Auth [${u.email}]:`, authError.message);
+        continue;
+      }
     }
 
     // 2. Criar Permissões (Tabela Publica)
-    // Garante que o usuário tenha a role ADMIN para acessar o sistema
-    const { error: dbError } = await supabase.from('usuarios').upsert({
-      nome: u.nome,
-      email: u.email,
-      role: u.role,
-      ativo: true
-    }, { onConflict: 'email' });
+    if (userId) {
+      // Remove qualquer registro antigo com este e-mail que tenha ID diferente
+      // Isso limpa o "lixo" gerado pelo script SQL antes de inserir o correto
+      await supabase
+        .from('usuarios')
+        .delete()
+        .eq('email', u.email.toLowerCase())
+        .neq('id', userId);
 
-    if (dbError) console.error(`Erro DB [${u.email}]:`, dbError.message);
+      const { error: dbError } = await supabase.from('usuarios').upsert({
+        id: userId, // Vínculo crucial: usa o ID do Auth
+        nome: u.nome,
+        email: u.email.toLowerCase(), // Normaliza para minúsculas
+        role: u.role,
+        ativo: true
+      }, { onConflict: 'email' });
+
+      if (dbError) console.error(`Erro DB [${u.email}]:`, dbError.message);
+    }
   }
   
   console.log('✅ Usuários prontos: antonio@escritorio.com.br / admin123');

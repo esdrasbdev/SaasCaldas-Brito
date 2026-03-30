@@ -12,55 +12,27 @@ import { showToast } from './utils.js';
 // ==========================================
 const AgendaModel = {
   async listarTudo() {
-    // Busca em paralelo
-    const [resAudiencias, resPericias, resReunioes] = await Promise.all([
-      supabase.from('audiencias').select('*, clientes(nome), processos(numero_cnj, clientes(nome))'),
-      supabase.from('pericias').select('*, clientes(nome), processos(numero_cnj, clientes(nome))'),
-      supabase.from('atendimentos').select('*, clientes(nome)').order('data', { ascending: true })
-    ]);
+    // Busca Atendimentos
+    const { data, error } = await supabase
+      .from('atendimentos')
+      .select('*, clientes(nome)')
+      .order('data', { ascending: true });
+
+    if (error) throw error;
+
+    // TODO: Para uma agenda REALMENTE unificada, você deve buscar 'audiencias' e 'pericias' aqui
+    // e concatenar no array 'lista' abaixo.
 
     const lista = [];
 
-    // Normaliza Audiências
-    if (resAudiencias.data) {
-      resAudiencias.data.forEach(a => {
-        lista.push({
-          id: a.id,
-          tipo: 'AUDIENCIA',
-          data: a.data,
-          titulo: `Audiência: ${a.tipo || 'Geral'}`,
-          local: a.local,
-          processo: a.processos?.numero_cnj || 'S/N',
-          cliente: a.clientes?.nome || a.processos?.clientes?.nome || '-',
-          obs: a.observacoes
-        });
-      });
-    }
-
-    // Normaliza Perícias
-    if (resPericias.data) {
-      resPericias.data.forEach(p => {
-        lista.push({
-          id: p.id,
-          tipo: 'PERICIA',
-          data: p.data,
-          titulo: `Perícia ${p.tipo || ''}: ${p.perito || 'Técnica'}`,
-          local: p.local,
-          processo: p.processos?.numero_cnj || 'S/N',
-          cliente: p.clientes?.nome || p.processos?.clientes?.nome || '-',
-          obs: p.tipo === 'Judicial' ? `Tribunal: ${p.tribunal} - Vara: ${p.vara}` : p.local
-        });
-      });
-    }
-
     // Normaliza Reuniões (Atendimentos Futuros)
-    if (resReunioes.data) {
-      resReunioes.data.forEach(r => {
+    if (data) {
+      data.forEach(r => {
         lista.push({
           id: r.id,
           tipo: 'REUNIAO',
           data: r.data,
-          titulo: 'Reunião com Cliente',
+          titulo: r.titulo || 'Reunião com Cliente',
           local: 'Escritório / Online',
           processo: '-',
           cliente: r.clientes?.nome || 'Avulso',
@@ -75,42 +47,32 @@ const AgendaModel = {
   },
 
   async criar(dados) {
-    let tabela;
-    let payload = {};
-
     // Converte string vazia para null (evita erro de UUID inválido no Supabase)
     const sanitizeUUID = (val) => (val && val.trim() !== '') ? val : null;
 
-    if (dados.tipo === 'audiencia') {
-      tabela = 'audiencias';
-      payload = { data: dados.data, processo_id: sanitizeUUID(dados.processo_id), cliente_id: sanitizeUUID(dados.cliente_id), local: dados.local, observacoes: dados.obs };
-      payload.tipo = 'Agendado via Agenda'; // Valor default ou campo extra
-    } else if (dados.tipo === 'pericia') {
-      tabela = 'pericias';
-      payload = { data: dados.data, processo_id: sanitizeUUID(dados.processo_id), cliente_id: sanitizeUUID(dados.cliente_id), local: dados.local, perito: dados.extra };
-    } else if (dados.tipo === 'reuniao') {
-      tabela = 'atendimentos';
-      // Para reuniões, precisamos do ID do usuário logado
-      const { data: { user } } = await supabase.auth.getUser();
-      // Busca ID público
-      const { data: uData } = await supabase.from('usuarios').select('id').eq('email', user.email).single();
-      
-      // Constrói a anotação com os participantes para salvar no campo de texto
-      const nomesClientes = dados.participantes.clientes.map(c => c.nome).join(', ');
-      const nomesUsuarios = dados.participantes.usuarios.map(u => u.nome).join(', ');
-      let participantesStr = [nomesClientes, nomesUsuarios].filter(Boolean).join(' e ');
-      if (!participantesStr) participantesStr = 'N/A';
+    // A agenda agora gerencia exclusivamente Atendimentos (Reuniões)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Usuário não autenticado');
 
-      payload = { 
-        data: dados.data, 
-        // Salva o ID do primeiro cliente selecionado para o vínculo principal
-        cliente_id: sanitizeUUID(dados.cliente_id),
-        usuario_id: uData?.id,
-        anotacoes: `[Agendamento] Reunião com: ${participantesStr}. Local: ${dados.local}. Obs: ${dados.obs || ''}`
-      };
-    }
+    // Busca ID do usuário na tabela pública
+    const { data: uData } = await supabase.from('usuarios').select('id').eq('email', user.email).single();
+    
+    // Constrói a anotação com os participantes
+    const nomesClientes = dados.participantes.clientes.map(c => c.nome).join(', ');
+    const nomesUsuarios = dados.participantes.usuarios.map(u => u.nome).join(', ');
+    let participantesStr = [nomesClientes, nomesUsuarios].filter(Boolean).join(' e ');
+    if (!participantesStr) participantesStr = 'N/A';
 
-    const { error } = await supabase.from(tabela).insert([payload]);
+    const payload = { 
+      titulo: dados.titulo || 'Reunião',
+      data: dados.data, 
+      cliente_id: sanitizeUUID(dados.cliente_id),
+      usuario_id: uData?.id || null,
+      canal: dados.local || 'Escritório', // Mapeia local para canal de atendimento
+      anotacoes: `[Agendamento] Participantes: ${participantesStr}. Obs: ${dados.obs || ''}`
+    };
+
+    const { error } = await supabase.from('atendimentos').insert([payload]);
     if (error) throw error;
     return true;
   },
@@ -215,9 +177,7 @@ const AgendaView = {
           <small class="text-muted" title="${evt.obs || ''}" style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block;">${evt.obs || ''}</small>
         </td>
         <td>
-          <span class="status-badge ${evt.tipo === 'AUDIENCIA' ? 'icon-blue' : (evt.tipo === 'REUNIAO' ? 'icon-green' : 'icon-purple')}">
-            ${evt.tipo === 'REUNIAO' ? 'REUNIÃO' : evt.tipo}
-          </span>
+          <span class="status-badge icon-green">REUNIÃO</span>
         </td>
         <td style="text-align: right;">
           <button class="btn-sm btn-view" data-id="${evt.id}" data-tipo="${evt.tipo}" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
@@ -257,23 +217,49 @@ const AgendaView = {
   },
 
   // Alterna a visibilidade dos campos do formulário
-  toggleForm(tipo) {
-    if (tipo === 'reuniao') {
-      this.blocoVinculos.style.display = 'none';
-      this.blocoParticipantes.style.display = 'block';
-    } else { // audiência ou perícia
-      this.blocoVinculos.style.display = 'grid';
-      this.blocoParticipantes.style.display = 'none';
+  toggleForm() {
+    const modalBody = this.form.querySelector('.modal-body');
+    
+    // Garante que o campo de Título exista no modal
+    if (modalBody && !document.getElementById('agenda-titulo')) {
+      const tituloHtml = `
+        <div class="form-group" id="group-titulo">
+          <label for="agenda-titulo">Assunto / Título da Reunião *</label>
+          <input type="text" id="agenda-titulo" placeholder="Ex: Reunião Inicial ou Fechamento de Contrato" required>
+        </div>
+      `;
+      modalBody.insertAdjacentHTML('afterbegin', tituloHtml);
     }
+
+    this.blocoVinculos.style.display = 'none';
+    this.blocoParticipantes.style.display = 'block';
+    
+    if (this.selectTipo) {
+      this.selectTipo.value = 'reuniao';
+      this.selectTipo.parentElement.style.display = 'none'; // Esconde o seletor de tipo
+    }
+
+    // Ajusta o label do campo "extra" para algo mais intuitivo em reuniões
+    const labelExtra = document.querySelector('label[for="agenda-extra"]');
+    if (labelExtra) labelExtra.textContent = 'Link da Reunião (se online)';
+    const inputExtra = document.getElementById('agenda-extra');
+    if (inputExtra) inputExtra.placeholder = 'https://zoom.us/j/...';
   },
 
   abrirModal(dados = null, visualizacao = false) {
-    this.form.reset();
-    document.getElementById('modal-titulo').textContent = visualizacao ? 'Detalhes do Agendamento' : (dados ? 'Editar Agendamento' : 'Novo Agendamento');
+    this.form.reset(); // Limpa o formulário
+    document.getElementById('modal-titulo').textContent = visualizacao ? 'Detalhes do Agendamento' : (dados ? 'Editar Agendamento' : 'Novo Agendamento'); // Define o título
     
     // Reseta estado dos inputs
     const inputs = this.form.querySelectorAll('input, select, textarea');
     inputs.forEach(el => el.disabled = visualizacao);
+
+    // Aplica/remove a classe mode-view para estilização de leitura
+    if (visualizacao) {
+      this.form.classList.add('mode-view');
+    } else {
+      this.form.classList.remove('mode-view');
+    }
     
     // Botão Salvar
     const btnSalvar = this.form.querySelector('button[type="submit"]');
@@ -281,7 +267,8 @@ const AgendaView = {
 
     this.modal.style.display = 'flex';
     
-    // Se for visualização/edição, preencheria aqui (implementação simplificada abaixo)
+    if (document.getElementById('agenda-titulo')) document.getElementById('agenda-titulo').value = dados?.titulo || '';
+
     if (dados) {
         // Lógica de preenchimento virá no controller
     }
@@ -296,47 +283,43 @@ const AgendaController = {
     AgendaView.init();
     
     AgendaView.btnNovo.onclick = () => {
-      AgendaView.toggleForm(AgendaView.selectTipo.value); // Ajusta o form ao abrir
+      AgendaView.toggleForm();
       AgendaView.abrirModal();
     };
     AgendaView.btnCancelar.onclick = () => AgendaView.modal.style.display = 'none';
     
-    // Adiciona listener para alternar o formulário ao mudar o tipo de evento
-    AgendaView.selectTipo.addEventListener('change', (e) => {
-      AgendaView.toggleForm(e.target.value);
-    });
-
     AgendaView.form.onsubmit = async (e) => {
       e.preventDefault();
       try {
-        const tipo = document.getElementById('agenda-tipo').value;
+        const dataInput = document.getElementById('agenda-data').value;
+        // Converte o valor do input (local) para um objeto Date e depois para ISO (UTC)
+        const dataIso = dataInput ? new Date(dataInput).toISOString() : null;
+        
+        if (!dataIso) return showToast('Por favor, selecione a data e hora.', 'warning');
+        if (!document.getElementById('agenda-titulo').value) return showToast('O título da reunião é obrigatório.', 'warning');
+
         const dados = {
-          tipo: tipo,
-          data: document.getElementById('agenda-data').value,
+          tipo: 'reuniao',
+          data: dataIso,
+          titulo: document.getElementById('agenda-titulo').value,
           local: document.getElementById('agenda-local').value,
           extra: document.getElementById('agenda-extra').value,
           obs: document.getElementById('agenda-obs').value
         };
 
-        if (tipo === 'reuniao') {
-          // Coleta marcados na lista de clientes
-          const clientesChecks = document.querySelectorAll('#agenda-clientes-list input[type="checkbox"]:checked');
-          const clientesSelecionados = Array.from(clientesChecks);
-          
-          // Coleta marcados na lista de usuários
-          const usuariosChecks = document.querySelectorAll('#agenda-usuarios-list input[type="checkbox"]:checked');
-          const usuariosSelecionados = Array.from(usuariosChecks);
+        // Coleta marcados na lista de clientes
+        const clientesChecks = document.querySelectorAll('#agenda-clientes-list input[type="checkbox"]:checked');
+        const clientesSelecionados = Array.from(clientesChecks);
+        
+        // Coleta marcados na lista de usuários
+        const usuariosChecks = document.querySelectorAll('#agenda-usuarios-list input[type="checkbox"]:checked');
+        const usuariosSelecionados = Array.from(usuariosChecks);
 
-          dados.participantes = {
-            clientes: clientesSelecionados.map(opt => ({ id: opt.value, nome: opt.dataset.nome })),
-            usuarios: usuariosSelecionados.map(opt => ({ id: opt.value, nome: opt.dataset.nome }))
-          };
-          dados.cliente_id = clientesSelecionados.length > 0 ? clientesSelecionados[0].value : null;
-        } else { // audiência ou perícia
-          dados.cliente_id = document.getElementById('agenda-cliente-single').value || null;
-          dados.processo_id = document.getElementById('agenda-processo').value;
-          // Validação de processo removida conforme solicitado
-        }
+        dados.participantes = {
+          clientes: clientesSelecionados.map(opt => ({ id: opt.value, nome: opt.dataset.nome })),
+          usuarios: usuariosSelecionados.map(opt => ({ id: opt.value, nome: opt.dataset.nome }))
+        };
+        dados.cliente_id = clientesSelecionados.length > 0 ? clientesSelecionados[0].value : null;
 
         await AgendaModel.criar(dados);
         AgendaView.modal.style.display = 'none';
@@ -382,36 +365,33 @@ const AgendaController = {
         // Obs: Como o listarTudo já traz quase tudo normalizado, podemos buscar lá ou fazer query específica.
         // Para simplificar e garantir dados frescos, faremos uma query rápida baseada no tipo.
         let data;
-        if (tipo === 'AUDIENCIA') {
-            const { data: d } = await supabase.from('audiencias').select('*').eq('id', id).single();
-            data = d;
-        } else if (tipo === 'PERICIA') {
-            const { data: d } = await supabase.from('pericias').select('*').eq('id', id).single();
-            data = d;
-        } else {
-            const { data: d } = await supabase.from('atendimentos').select('*').eq('id', id).single();
-            data = d;
-        }
+        const { data: d } = await supabase.from('atendimentos').select('*').eq('id', id).single();
+        data = d;
 
         if (data) {
             AgendaView.abrirModal(data, visualizacao);
             
-            // Preenche campos comuns
-            document.getElementById('agenda-tipo').value = tipo === 'AUDIENCIA' ? 'audiencia' : (tipo === 'PERICIA' ? 'pericia' : 'reuniao');
-            AgendaView.toggleForm(document.getElementById('agenda-tipo').value);
+            AgendaView.toggleForm();
 
             // Ajusta data para formato datetime-local
             const dateObj = new Date(data.data);
             const localDate = new Date(dateObj.getTime() - (dateObj.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
             document.getElementById('agenda-data').value = localDate;
             
+            if (document.getElementById('agenda-titulo')) document.getElementById('agenda-titulo').value = data.titulo || '';
             document.getElementById('agenda-local').value = data.local || ''; // Atendimentos podem não ter local na raiz, ajustar se necessário
             document.getElementById('agenda-extra').value = data.perito || ''; // Pericias
-            document.getElementById('agenda-obs').value = data.observacoes || data.anotacoes || '';
+            document.getElementById('agenda-obs').value = data.anotacoes || ''; // Reuniões usam 'anotacoes'
             
             // Vínculos
             if (data.processo_id) document.getElementById('agenda-processo').value = data.processo_id;
             if (data.cliente_id) document.getElementById('agenda-cliente-single').value = data.cliente_id;
+
+            // Desabilita checkboxes em modo visualização
+            const checkboxes = AgendaView.listClientesMulti.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.disabled = visualizacao);
+            const userCheckboxes = AgendaView.listUsuariosMulti.querySelectorAll('input[type="checkbox"]');
+            userCheckboxes.forEach(cb => cb.disabled = visualizacao);
         }
       }
     });
