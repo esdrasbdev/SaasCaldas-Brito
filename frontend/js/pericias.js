@@ -105,14 +105,18 @@ async function carregarClientes() {
 }
 
 // Carrega e exibe as perícias na tabela
-async function carregarPericias() {
-  const isAdmin = AuthAPI.getRole() === 'ADMIN';
+  async function carregarPericias() {
+    const isAdmin = AuthAPI.getRole() === 'ADMIN';
   
-  // Tenta carregar com relacionamento de usuário
-  let { data, error } = await supabase
-    .from('pericias')
-    .select('*, clientes(nome), usuarios(nome)')
-    .order('data', { ascending: true });
+    // Force usuarios load (Antonio/Priscila)
+    let { data, error } = await supabase
+      .from('pericias')
+      .select(`
+        *,
+        clientes(nome),
+        usuarios(nome)
+      `)
+      .order('data', { ascending: true });
 
   // Fallback: Se falhar por relacionamento inexistente (PGRST200) ou Bad Request (400), tenta carregar sem usuário
   if (error && (error.code === 'PGRST200' || error.code === 'PGRST204' || error.message?.includes('FetchError') || !data)) {
@@ -147,6 +151,7 @@ async function carregarPericias() {
       <td>${p.perito || 'Não informado'}</td>
       <td>
         <button class="btn-sm btn-view" data-id="${p.id}" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
+        <button class="btn-sm btn-edit" data-id="${p.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
         ${isAdmin ? `<button class="btn-sm btn-delete" data-id="${p.id}" title="Excluir" style="color: #ef4444;"><i class="fa-solid fa-trash"></i></button>` : ''}
       </td>
     </tr>
@@ -208,63 +213,45 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Event listener para ações
   listaPericias.addEventListener('click', async (e) => {
-    // Visualizar
+    const btnEdit = e.target.closest('.btn-edit');
     const btnView = e.target.closest('.btn-view');
-    if (btnView) {
-      const id = btnView.dataset.id;
+    const btnDelete = e.target.closest('.btn-delete');
+
+    if (btnEdit || btnView) {
+      const id = (btnEdit || btnView).dataset.id;
       const { data, error } = await supabase.from('pericias').select('*').eq('id', id).single();
       
-      if (!error && data) {
-        document.getElementById('cliente-select').value = data.cliente_id;
-        
-        const date = new Date(data.data);
-        const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
-        document.getElementById('pericia-data').value = localDate;
-        
-        document.getElementById('pericia-local').value = data.local;
-        document.getElementById('pericia-perito').value = data.perito;
-        document.getElementById('pericia-tipo').value = data.tipo || 'Administrativa';
-        document.getElementById('pericia-tribunal').value = data.tribunal || '';
-        document.getElementById('pericia-vara').value = data.vara || '';
-        document.getElementById('campos-judiciais').style.display = data.tipo === 'Judicial' ? 'grid' : 'none';
-
-        // Garante que o modal-body tenha o grid para melhor visualização
-        const modalBody = formPericia.querySelector('.modal-body');
-        if (modalBody) {
-          modalBody.style.display = 'grid';
-          modalBody.style.gridTemplateColumns = 'repeat(2, 1fr)'; // 2 colunas para perícias
-          modalBody.style.gap = '15px 20px';
-          modalBody.style.overflowY = 'auto';
-          modalBody.style.flex = '1 1 auto';
-          modalBody.style.padding = '25px';
-
-          // Estilização compacta para todos os inputs dentro do modal
-          const allLabels = modalBody.querySelectorAll('label');
-          allLabels.forEach(l => l.style.cssText = 'font-size: 0.75rem; margin-bottom: 2px; display: block; font-weight: 600; color: var(--azul-escuro); text-transform: uppercase;');
-          const allInputs = modalBody.querySelectorAll('input, select, textarea');
-          allInputs.forEach(i => i.style.cssText = 'width: 100%; padding: 6px 10px; border: 1px solid var(--cinza-borda); border-radius: 4px; font-size: 0.85rem;');
-        }
-
-        // Trava campos
-        const inputs = formPericia.querySelectorAll('input, select');
-        inputs.forEach(el => el.disabled = true);
-        formPericia.classList.add('mode-view'); // Ativa estilo premium de leitura
-        document.querySelector('#form-pericia button[type="submit"]').style.display = 'none';
-        document.querySelector('.modal-header h2').textContent = 'Detalhes da Perícia';
-        
-        formContainer.style.display = 'flex';
+      if (error || !data) {
+        showToast('Erro ao carregar', 'error');
+        return;
       }
+
+      // Populate form
+      document.getElementById('cliente-select').value = data.cliente_id || '';
+      const localDate = new Date(data.data).toISOString().slice(0, 16);
+      document.getElementById('pericia-data').value = localDate;
+      document.getElementById('pericia-local').value = data.local || '';
+      document.getElementById('pericia-perito').value = data.perito || '';
+      document.getElementById('pericia-tipo').value = data.tipo || 'Administrativa';
+      document.getElementById('pericia-tribunal').value = data.tribunal || '';
+      document.getElementById('pericia-vara').value = data.vara || '';
+      document.getElementById('campos-judiciais').style.display = data.tipo === 'Judicial' ? 'grid' : 'none';
+
+      // Mode
+      const isView = btnView;
+      const inputs = formPericia.querySelectorAll('input, select');
+      inputs.forEach(el => el.disabled = isView);
+      formPericia.classList.toggle('mode-view', isView);
+      document.querySelector('#form-pericia button[type="submit"]').style.display = isView ? 'none' : 'block';
+      document.querySelector('.modal-header h2').textContent = isView ? 'Detalhes da Perícia' : 'Editar Perícia';
+
+      formContainer.style.display = 'flex';
     }
 
-    // Excluir
-    const btn = e.target.closest('.btn-delete');
-    if (btn && confirm('Tem certeza que deseja excluir esta perícia?')) {
-      const { error } = await supabase.from('pericias').delete().eq('id', btn.dataset.id);
-      if (error) {
-        showToast('Erro ao excluir: ' + error.message, 'error');
-      } else {
-        carregarPericias();
-      }
+    if (btnDelete && confirm('Tem certeza?')) {
+      const { error } = await supabase.from('pericias').delete().eq('id', btnDelete.dataset.id);
+      showToast(error ? 'Erro ao excluir' : 'Excluída!', error ? 'error' : 'success');
+      carregarPericias();
     }
   });
 });

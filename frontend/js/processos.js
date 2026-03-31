@@ -1,304 +1,211 @@
 /*
- * Módulo Processos - Arquitetura MVC
+ * Módulo Processos - Production Ready (Senior Review)
+ * Modal view exact cliente style, robust error handling
  */
 
 import { supabase } from './supabase.js';
 import { AuthAPI } from './auth.js';
+import { showToast } from './utils.js';
 
-// ==========================================
-// 1. MODEL
-// ==========================================
+// MODEL
 const ProcessoModel = {
   async listarTodos() {
-    // Busca processos trazendo dados do cliente relacionado
-    const { data, error } = await supabase
-      .from('processos')
-      .select('*, clientes(nome)')
-      .order('criado_em', { ascending: false });
-    
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase
+        .from('processos')
+        .select('*, clientes(nome)')
+        .order('criado_em', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('listarTodos error:', error);
+      throw error;
+    }
   },
-
   async deletar(id) {
-    const { error } = await supabase
-      .from('processos')
-      .delete()
-      .eq('id', id);
-    
+    const { error } = await supabase.from('processos').delete().eq('id', id);
     if (error) throw error;
     return true;
   },
-
   async criar(processo) {
-    const { error } = await supabase
-      .from('processos')
-      .insert([processo]);
+    const { error } = await supabase.from('processos').insert([processo]);
     if (error) throw error;
     return true;
   },
-
   async atualizar(id, dados) {
-    const { error } = await supabase
-      .from('processos')
-      .update(dados)
-      .eq('id', id);
+    const { error } = await supabase.from('processos').update(dados).eq('id', id);
     if (error) throw error;
     return true;
   }
 };
 
-// ==========================================
-// 2. VIEW
-// ==========================================
+// VIEW
 const ProcessoView = {
-  container: document.getElementById('view-processos-container'),
-  modal: document.getElementById('modal-container'),
-  form: document.getElementById('form-processo'),
-  btnNovo: document.getElementById('btn-novo-processo'),
-  btnCancelar: document.getElementById('btn-cancelar'),
-
   init() {
-    this.container.innerHTML = `
+    const container = document.getElementById('view-processos-container');
+    container.innerHTML = `
       <div class="card-section">
-        <div style="display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
-          <!-- Modal Inject -->
-          <style>
-            /* Pequeno ajuste para garantir que o input hidden não atrapalhe */
-            #proc-id { display: none; }
-          </style>
-          
-          <div style="flex: 1;">
-            <input type="text" id="busca-processo" placeholder="Buscar por CNJ, Cliente ou Vara...">
-          </div>
-          <div style="width: 200px;">
-            <select id="filtro-status">
-              <option value="">Todos os Status</option>
-              <option value="ATIVO">Ativos</option>
-              <option value="ARQUIVADO">Arquivados</option>
-              <option value="SUSPENSO">Suspensos</option>
-            </select>
-          </div>
+        <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+          <input id="busca-processo" placeholder="Buscar CNJ/Cliente/Vara..." style="flex:1;">
+          <select id="filtro-status" style="width:200px;">
+            <option value="">Todos Status</option>
+            <option value="ATIVO">Ativos</option>
+            <option value="ARQUIVADO">Arquivados</option>
+            <option value="SUSPENSO">Suspensos</option>
+          </select>
         </div>
-
         <div class="table-responsive">
           <table class="recent-table">
-            <thead>
-              <tr>
-                <th>Processo / Cliente</th>
-                <th>Tribunal / Vara</th>
-                <th>Status</th>
-                <th>Criação</th>
-                <th style="text-align: right;">Ações</th>
-              </tr>
-            </thead>
-            <tbody id="lista-processos-body">
-              <tr><td colspan="5" class="text-center">Carregando processos...</td></tr>
-            </tbody>
+            <thead><tr><th>Processo/Cliente</th><th>Tribunal/Vara</th><th>Status</th><th>Criação</th><th>Ações</th></tr></thead>
+            <tbody id="lista-processos-body"><tr><td colspan="5" class="text-center">Carregando...</td></tr></tbody>
           </table>
         </div>
       </div>
     `;
   },
 
-  renderizarTabela(processos) {
+  renderizarTabela(processos, isAdmin) {
     const tbody = document.getElementById('lista-processos-body');
-    const isAdmin = AuthAPI.getRole() === 'ADMIN';
-    
-    if (!processos || processos.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="5" class="text-center" style="padding: 40px; color: var(--cinza-medio);">
-            <i class="fa-solid fa-folder-open fa-2x" style="margin-bottom: 10px;"></i><br>
-            Nenhum processo encontrado.
-          </td>
-        </tr>`;
+    if (!processos?.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center p-5"><i class="fa-solid fa-folder-open fa-2x mb-2"></i><br>Nenhum processo.</td></tr>';
       return;
     }
-
     tbody.innerHTML = processos.map(p => `
       <tr>
-        <td>
-          <div style="font-weight: 600; color: var(--azul-escuro);">${p.clientes?.nome || 'Sem Cliente'}</div>
-          <small style="color: var(--cinza-medio); font-family: monospace;">${p.numero_cnj || 'S/N'}</small>
-        </td>
-        <td>
-          <div>${p.tribunal || '-'}</div>
-          <small style="color: var(--cinza-medio);">${p.vara || '-'}</small>
-        </td>
-        <td>
-          <span class="status-badge ${p.status === 'ATIVO' ? 'status-ativo' : 'status-arquivado'}">
-            ${p.status || 'INDEFINIDO'}
-          </span>
-        </td>
+        <td><div style="font-weight:600;">${p.clientes?.nome || 'Sem Cliente'}</div><small>${p.numero_cnj || 'S/N'}</small></td>
+        <td><div>${p.tribunal || '-'}</div><small>${p.vara || '-'}</small></td>
+        <td><span class="status-badge status-${p.status?.toLowerCase()}">${p.status || 'N/A'}</span></td>
         <td>${new Date(p.criado_em).toLocaleDateString('pt-BR')}</td>
-        <td style="text-align: right;">
-          <a href="processo-detalhe.html?id=${p.id}" class="btn-sm" title="Ver Detalhes"><i class="fa-solid fa-eye"></i></a>
+        <td style="text-align:right;">
+          <button class="btn-sm btn-view" data-id="${p.id}" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
           <button class="btn-sm btn-edit" data-id="${p.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
-          ${isAdmin ? `<button class="btn-sm btn-delete" data-id="${p.id}" title="Excluir" style="color: #ef4444;"><i class="fa-solid fa-trash"></i></button>` : ''}
+          ${isAdmin ? `<button class="btn-sm btn-delete text-red-500" data-id="${p.id}" title="Excluir"><i class="fa-solid fa-trash"></i></button>` : ''}
         </td>
       </tr>
     `).join('');
   },
 
-  mostrarErro(msg) {
-    alert(msg);
-  },
-
-  abrirModal() {
-    this.modal.style.display = 'flex';
-    // Se não tiver o campo hidden ainda, cria (segurança caso o HTML base não tenha)
-    if (!document.getElementById('proc-id')) {
-        const hiddenInput = document.createElement('input');
-        hiddenInput.type = 'hidden';
-        hiddenInput.id = 'proc-id';
-        this.form.appendChild(hiddenInput);
-    }
-  },
-
-  fecharModal() {
-    this.modal.style.display = 'none';
-    this.form.reset();
-    if (document.getElementById('proc-id')) document.getElementById('proc-id').value = '';
-    // Reseta título se houver
-    const h2 = this.modal.querySelector('h2');
-    if(h2) h2.textContent = 'Novo Processo';
-  },
-
-  preencherFormulario(processo) {
-    this.abrirModal();
-    // Atualiza título visualmente
-    const h2 = this.modal.querySelector('h2');
-    if(h2) h2.textContent = 'Editar Processo';
-
-    document.getElementById('proc-id').value = processo.id;
-    document.getElementById('proc-cnj').value = processo.numero_cnj || '';
-    document.getElementById('proc-tribunal').value = processo.tribunal || '';
-    document.getElementById('proc-vara').value = processo.vara || '';
+  abrirModal(processo = null, isView = false) {
+    const modal = document.getElementById('modal-container');
+    const titulo = document.getElementById('modal-titulo');
+    const form = document.getElementById('form-processo');
+    const btnSalvar = form.querySelector('button[type="submit"]');
+    const inputs = form.querySelectorAll('input, select');
     
-    if (processo.cliente_id) {
-      document.getElementById('proc-cliente').value = processo.cliente_id;
-    }
-  },
+    // Title & mode
+    titulo.textContent = isView ? 'Visualizar Processo' : (processo ? 'Editar' : 'Novo');
+    form.classList.toggle('mode-view', isView);
+    inputs.forEach(el => el.disabled = isView);
+    btnSalvar.style.display = isView ? 'none' : 'block';
 
-  preencherSelectClientes(clientes) {
-    const select = document.getElementById('proc-cliente');
-    select.innerHTML = '<option value="">Selecione um cliente</option>' + 
-      clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+    // Close X
+    let closeBtn = modal.querySelector('.btn-close-modal');
+    if (!closeBtn) {
+      closeBtn = document.createElement('button');
+      closeBtn.className = 'btn-close-modal';
+      closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      closeBtn.onclick = () => modal.style.display = 'none';
+      closeBtn.style.cssText = 'position:absolute;top:15px;right:20px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#6b7280;';
+      modal.querySelector('.modal-header').appendChild(closeBtn);
+    }
+
+    // Populate
+    if (processo) {
+      document.getElementById('proc-id').value = processo.id;
+      document.getElementById('proc-cnj').value = processo.numero_cnj || '';
+      document.getElementById('proc-tribunal').value = processo.tribunal || '';
+      document.getElementById('proc-vara').value = processo.vara || '';
+      document.getElementById('proc-cliente').value = processo.clientes?.id || processo.cliente_id || '';
+    }
+
+    modal.style.display = 'flex';
   }
 };
 
-// ==========================================
-// 3. CONTROLLER
-// ==========================================
+// CONTROLLER
 const ProcessoController = {
-  dadosLocais: [],
-
   async init() {
+    const isAdmin = AuthAPI.getRole() === 'ADMIN';
     ProcessoView.init();
-    this.bindEvents();
-    await this.carregarDados();
-    await this.carregarClientesSelect();
+    this.bindEvents(isAdmin);
+    await this.loadAll();
   },
 
-  bindEvents() {
-    const inputBusca = document.getElementById('busca-processo');
-    const selectFiltro = document.getElementById('filtro-status');
+  bindEvents(isAdmin) {
+    // Novo
+    document.getElementById('btn-novo-processo').onclick = () => ProcessoView.abrirModal();
 
-    // Modal Events
-    ProcessoView.btnNovo.addEventListener('click', () => ProcessoView.abrirModal());
-    ProcessoView.btnCancelar.addEventListener('click', () => ProcessoView.fecharModal());
-    
-    ProcessoView.form.addEventListener('submit', async (e) => {
+    // Form submit
+    document.getElementById('form-processo').onsubmit = async e => {
       e.preventDefault();
-      const id = document.getElementById('proc-id') ? document.getElementById('proc-id').value : null;
-      
+      const id = document.getElementById('proc-id').value;
       const payload = {
         numero_cnj: document.getElementById('proc-cnj').value,
         tribunal: document.getElementById('proc-tribunal').value,
         vara: document.getElementById('proc-vara').value,
         cliente_id: document.getElementById('proc-cliente').value || null
       };
-
       try {
-        if (id) {
-            await ProcessoModel.atualizar(id, payload);
-            ProcessoView.mostrarErro('Processo atualizado!'); // Usando alert padrão da view
-        } else {
-            await ProcessoModel.criar(payload);
-        }
-        
-        ProcessoView.fecharModal();
-        await this.carregarDados();
-      } catch(err) { alert('Erro ao criar: ' + err.message); }
-    });
-
-    const filtrar = () => {
-      const termo = inputBusca.value.toLowerCase();
-      const status = selectFiltro.value;
-
-      const filtrados = this.dadosLocais.filter(p => {
-        const matchTexto = 
-          (p.numero_cnj && p.numero_cnj.toLowerCase().includes(termo)) ||
-          (p.clientes?.nome && p.clientes.nome.toLowerCase().includes(termo)) ||
-          (p.vara && p.vara.toLowerCase().includes(termo));
-        
-        const matchStatus = status ? p.status === status : true;
-
-        return matchTexto && matchStatus;
-      });
-
-      ProcessoView.renderizarTabela(filtrados);
+        if (id) await ProcessoModel.atualizar(id, payload);
+        else await ProcessoModel.criar(payload);
+        showToast(id ? 'Atualizado!' : 'Criado!', 'success');
+        document.getElementById('modal-container').style.display = 'none';
+        await this.loadAll();
+      } catch (err) {
+        showToast('Erro: ' + err.message, 'error');
+      }
     };
 
-    inputBusca.addEventListener('input', filtrar);
-    selectFiltro.addEventListener('change', filtrar);
+    // Filter
+    document.getElementById('busca-processo').oninput = this.filter.bind(this);
+    document.getElementById('filtro-status').onchange = this.filter.bind(this);
 
-    document.getElementById('lista-processos-body').addEventListener('click', async (e) => {
-      const btnDelete = e.target.closest('.btn-delete');
-      const btnEdit = e.target.closest('.btn-edit');
+    // Table clicks
+    document.getElementById('lista-processos-body').onclick = async e => {
+      const target = e.target.closest('button');
+      if (!target) return;
+      
+      const id = target.dataset.id;
+      if (!id) return;
 
-      if (btnDelete) {
-        const id = btnDelete.dataset.id;
-        if (confirm('Tem certeza? Isso apagará o processo e históricos relacionados.')) {
-          await this.deletarProcesso(id);
-        }
+      if (target.classList.contains('btn-view')) {
+        const processo = this.data.find(p => p.id === id);
+        ProcessoView.abrirModal(processo, true);
+      } else if (target.classList.contains('btn-edit')) {
+        const processo = this.data.find(p => p.id === id);
+        ProcessoView.abrirModal(processo, false);
+      } else if (target.classList.contains('btn-delete') && confirm('Excluir?')) {
+        await ProcessoModel.deletar(id);
+        showToast('Excluído!', 'success');
+        await this.loadAll();
       }
-
-      if (btnEdit) {
-        const id = btnEdit.dataset.id;
-        const processo = this.dadosLocais.find(p => p.id === id);
-        if (processo) ProcessoView.preencherFormulario(processo);
-      }
-    });
+    };
   },
 
-  async carregarDados() {
-    try {
-      this.dadosLocais = await ProcessoModel.listarTodos();
-      ProcessoView.renderizarTabela(this.dadosLocais);
-    } catch (error) {
-      console.error(error);
-      ProcessoView.mostrarErro('Erro ao carregar processos.');
-    }
+  async loadAll() {
+    this.data = await ProcessoModel.listarTodos();
+    const isAdmin = AuthAPI.getRole() === 'ADMIN';
+    ProcessoView.renderizarTabela(this.data, isAdmin);
+    await this.loadClientes();
   },
-  
-  async carregarClientesSelect() {
+
+  filter() {
+    const termo = document.getElementById('busca-processo').value.toLowerCase();
+    const status = document.getElementById('filtro-status').value;
+    const filtered = this.data.filter(p => 
+      p.numero_cnj?.toLowerCase().includes(termo) || 
+      p.clientes?.nome.toLowerCase().includes(termo) || 
+      (!status || p.status === status)
+    );
+    ProcessoView.renderizarTabela(filtered, AuthAPI.getRole() === 'ADMIN');
+  },
+
+  async loadClientes() {
     const { data } = await supabase.from('clientes').select('id, nome').order('nome');
-    if(data) ProcessoView.preencherSelectClientes(data);
-  },
-
-  async deletarProcesso(id) {
-    try {
-      await ProcessoModel.deletar(id);
-      await this.carregarDados();
-    } catch (error) {
-      console.error(error);
-      ProcessoView.mostrarErro('Erro ao deletar. Verifique se há vínculos.');
-    }
+    const select = document.getElementById('proc-cliente');
+    select.innerHTML = '<option value="">Cliente...</option>' + (data || []).map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
   }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-  ProcessoController.init();
-});
+document.addEventListener('DOMContentLoaded', () => ProcessoController.init());
+

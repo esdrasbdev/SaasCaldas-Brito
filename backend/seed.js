@@ -6,8 +6,8 @@ const supabase = require('./supabase.js');
 
 async function seedUsers() {
   const users = [
-    { nome: 'Antonio', email: 'antonio@escritorio.com.br', pass: 'admin123', role: 'ADMIN' },
-    { nome: 'Priscila', email: 'priscila@escritorio.com.br', pass: 'admin123', role: 'ADMIN' }
+    { nome: 'Antonio', email: 'antoniocaldas.adv@gmail.com', pass: 'admin123', role: 'ADMIN' },
+    { nome: 'Priscila', email: 'priscila.adv17@gmail.com', pass: 'admin123', role: 'ADMIN' }
   ];
 
   console.log('🌱 Verificando usuários padrão (Seed)...');
@@ -57,7 +57,7 @@ async function seedUsers() {
     }
   }
   
-  console.log('✅ Usuários prontos: antonio@escritorio.com.br / admin123');
+  console.log('✅ Usuários prontos: antoniocaldas.adv@gmail.com / admin123 & priscila.adv17@gmail.com / admin123');
 }
 
 module.exports = seedUsers;

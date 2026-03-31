@@ -9,8 +9,9 @@ const urlParams = new URLSearchParams(window.location.search);
 const processoId = urlParams.get('id');
 
 if (!processoId) {
-  alert('ID processo necessário');
+  alert('ID do processo necessário. Retornando à lista.');
   window.location.href = 'processos.html';
+  return;
 }
 
 async function carregarProcesso() {

@@ -206,9 +206,18 @@ const AdminController = {
       }
       
       if (btnDelete) {
-        if (confirm('Tem certeza? O usuário perderá o acesso ao sistema.')) {
-          await supabase.from('usuarios').delete().eq('id', btnDelete.dataset.id);
-          this.carregar();
+        if (confirm('Tem certeza? Verifique foreign keys primeiro.')) {
+          try {
+            const { error } = await supabase.from('usuarios').delete().eq('id', btnDelete.dataset.id);
+            if (error) {
+              showToast('Falha: ' + error.message + '. Limpe dependências.', 'error');
+            } else {
+              showToast('Excluído!', 'success');
+              this.carregar();
+            }
+          } catch (err) {
+            showToast('Erro DELETE: ' + err.message, 'error');
+          }
         }
       }
     });

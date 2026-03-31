@@ -11,8 +11,8 @@ if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
   console.warn('Aviso: Supabase: js/env.js nao carregado ou chaves ausentes no frontend.');
 }
 
-const supabaseUrl = env.SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = env.SUPABASE_ANON_KEY || 'placeholder';
+const supabaseUrl = env.SUPABASE_URL || 'https://xogyvlhgtznffapbpovq.supabase.co';
+const supabaseKey = env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhvZ3l2bGhndHpuZmZhcGJwb3ZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjAyMjksImV4cCI6MjA4OTM5NjIyOX0.Dsnz3Pwyi-QvifHurtqdS3DVYtqH4NeOfVuNs-PdSqM';
 
 // Cria instância oficial
 export const supabase = createClient(supabaseUrl, supabaseKey);
