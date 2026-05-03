@@ -32,12 +32,13 @@
 }
 
 .brand-logo-text span {
-  font-family: 'Playfair Display', serif, var(--fonte-principal); /* Ideal ter uma fonte serifada importada, senão usa fallback */
+  font-family: 'Playfair Display', serif, var(--fonte-principal);
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--azul-escuro);
   letter-spacing: -0.02em;
   line-height: 1.2;
+  transition: color 0.3s ease;
 }
 
 .brand-logo-text small {
@@ -47,6 +48,13 @@
   color: var(--azul-medio);
   margin-top: 4px;
   font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+/* Logo no tema escuro - sempre claro */
+body.dark-mode .brand-logo-text span,
+body.dark-mode .brand-logo-text small {
+  color: #ffffff !important;
 }
 
 /* Navegação (Links) */
@@ -160,10 +168,15 @@
   display: block;
   font-size: 0.9rem;
   font-weight: 700;
-  color: var(--azul-escuro);
+  color: var(--texto-primario, #1e293b);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Tema escuro - nome do usuário */
+body.dark-mode .user-name {
+  color: #ffffff !important;
 }
 
 .user-role {

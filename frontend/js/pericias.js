@@ -178,9 +178,9 @@ formPericia.addEventListener('submit', async (e) => {
   // Vara e Tribunal não são mais obrigatórios, apenas aparecem
 
   const dataInput = document.getElementById('pericia-data').value;
-  // Interpretamos a data digitada como local antes de enviar ao banco
-  // Isso evita que o banco assuma UTC e cause o atraso de 3 horas
-  const dataIso = dataInput ? new Date(dataInput).toISOString() : null;
+  const horaInput = document.getElementById('pericia-hora').value;
+  // Combina data e hora no formato ISO
+  const dataIso = (dataInput && horaInput) ? new Date(`${dataInput}T${horaInput}`).toISOString() : null;
 
   const novaPericia = {
     cliente_id: getVal('cliente-select'),

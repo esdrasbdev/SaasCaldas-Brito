@@ -89,10 +89,14 @@ const controller = {
     // Busca ID do usuario na tabela usuarios baseado no email auth
     const { data: usuarioDB } = await supabase.from('usuarios').select('id').eq('email', user.email).single();
     
+    const dataInput = document.getElementById('atend-data').value;
+    const horaInput = document.getElementById('atend-hora').value;
+    const dataIso = (dataInput && horaInput) ? new Date(`${dataInput}T${horaInput}`).toISOString() : dataInput;
+
     const novo = {
       cliente_id: document.getElementById('atend-cliente').value,
       titulo: document.getElementById('atend-titulo').value,
-      data: document.getElementById('atend-data').value,
+      data: dataIso,
       canal: document.getElementById('atend-canal').value,
       duracao: document.getElementById('atend-duracao').value,
       anotacoes: document.getElementById('atend-anotacoes').value,

@@ -89,44 +89,28 @@ const Sidebar = {
   },
 
   atualizarMenu(role) {
-    console.log('Sidebar: Atualizando menu para role:', role);
     if (!role) return;
 
-    // Mapa de permissões: Quem pode ver o quê
     const permissoes = {
-      'index.html': ['ADMIN', 'ADVOGADO', 'ESTAGIARIO', 'ATENDENTE'],
-      'dashboard.html': ['ADMIN', 'ADVOGADO', 'ESTAGIARIO', 'ATENDENTE'],
-      'clientes.html': ['ADMIN', 'ADVOGADO', 'ESTAGIARIO', 'ATENDENTE'],
-      'processos.html': ['ADMIN', 'ADVOGADO', 'ESTAGIARIO'],
-      'agenda.html': ['ADMIN', 'ADVOGADO', 'ESTAGIARIO', 'ATENDENTE'],
-      'audiencias.html': ['ADMIN', 'ADVOGADO'],
-      'pericias.html': ['ADMIN', 'ADVOGADO'],
-      'atendimentos.html': ['ADMIN', 'ESTAGIARIO', 'ATENDENTE'], // Advogado foca em peças
-      'publicacoes.html': ['ADMIN'], // Só Admin vê publicações do Escavador
+      'index.html': ['ADMIN', 'ADVOGADO', 'ADVOGADA', 'SECRETARIA', 'ESTAGIARIO', 'ESTAGIARIA'],
+      'dashboard.html': ['ADMIN', 'ADVOGADO', 'ADVOGADA', 'SECRETARIA', 'ESTAGIARIO', 'ESTAGIARIA'],
+      'clientes.html': ['ADMIN', 'ADVOGADO', 'ADVOGADA', 'SECRETARIA', 'ESTAGIARIO', 'ESTAGIARIA'],
+      'processos.html': ['ADMIN', 'ADVOGADO', 'ADVOGADA', 'SECRETARIA', 'ESTAGIARIO', 'ESTAGIARIA'],
+      'agenda.html': ['ADMIN', 'ADVOGADO', 'ADVOGADA', 'SECRETARIA', 'ESTAGIARIO', 'ESTAGIARIA'],
+      'audiencias.html': ['ADMIN', 'ADVOGADO', 'ADVOGADA', 'SECRETARIA'],
+      'pericias.html': ['ADMIN', 'ADVOGADO', 'ADVOGADA', 'SECRETARIA'],
+      'atendimentos.html': ['ADMIN', 'SECRETARIA', 'ESTAGIARIO', 'ESTAGIARIA'],
+      'publicacoes.html': ['ADMIN'],
       'admin.html': ['ADMIN']
     };
 
     this.navLinks.forEach(link => {
-      // Garante que a classe de estilo exista (fix visual se faltar no HTML)
       link.classList.add('nav-item');
-
-      // Normaliza o href: remove espaços e prefixos como ./ ou /
-      const rawHref = link.getAttribute('href');
-      const href = rawHref ? rawHref.replace(/^(\.\/|\/)/, '').trim() : '';
-
+      const href = link.getAttribute('href').replace(/^(\.\/|\/)/, '').trim();
       const allowedRoles = permissoes[href];
 
-      if (allowedRoles && allowedRoles.includes(role)) {
-        link.parentElement.style.display = 'block'; // Mostra o <li>
-      } else {
-        // Debug detalhado se oculto
-        if (!allowedRoles) console.warn(`Sidebar: Link '${href}' ignorado (não mapeado).`);
-        else console.log(`Sidebar: Ocultando '${href}' para role '${role}' (permissão insuficiente)`);
-        
-        link.parentElement.style.display = 'none';  // Esconde o <li>
-      }
+      link.parentElement.style.display = allowedRoles && allowedRoles.includes(role) ? 'block' : 'none';
 
-      // Marca ativo
       if (window.location.pathname.includes(href)) {
         link.classList.add('active');
       }
@@ -159,6 +143,12 @@ const Sidebar = {
           icon.classList.replace('fa-moon', 'fa-sun');
         } else {
           icon.classList.replace('fa-sun', 'fa-moon');
+        }
+
+        // Atualiza logo conforme tema
+        const logo = this.sidebar.querySelector('.brand-logo-text');
+        if (logo) {
+          logo.classList.toggle('logo-dark', !isDark);
         }
       });
     }

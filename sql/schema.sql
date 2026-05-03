@@ -10,7 +10,7 @@ create table usuarios (
   id uuid primary key default gen_random_uuid(),
   nome text not null,
   email text unique not null,
-  role text not null check (role in ('ADMIN','ADVOGADO','ESTAGIARIO','ATENDENTE')),
+  role text not null check (role in ('ADMIN','ADVOGADO','ADVOGADA','ESTAGIARIO','ESTAGIARIA','SECRETARIA')),
   ativo bool default true,
   criado_em timestamptz default now()
 );
@@ -25,6 +25,7 @@ create table clientes (
   telefone text,
   area_juridica text,
   usuario_id uuid references usuarios(id),
+  advogado_id uuid references usuarios(id),
   nacionalidade text,
   estado_civil text,
   profissao text,

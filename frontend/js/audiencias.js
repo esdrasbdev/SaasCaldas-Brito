@@ -207,8 +207,8 @@ const AudienciaController = {
     document.getElementById('form-audiencia').onsubmit = async (e) => {
       e.preventDefault();
       
-      const dataStr = document.getElementById('aud-data').value;
-      const horaStr = document.getElementById('aud-hora').value;
+      const dataStr = document.getElementById('audiencia-data').value;
+      const horaStr = document.getElementById('audiencia-hora').value;
       
       // Criamos o objeto Date garantindo que o navegador entenda como hora local
       // O uso do construtor Date com string YYYY-MM-DDTHH:mm sem sufixo 'Z' assume local

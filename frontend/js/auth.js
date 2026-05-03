@@ -108,12 +108,14 @@ async function logout() {
 function hasPermission(requiredRole) {
   if (!currentUserRole) return false;
   
-  // Hierarquia de roles: ADMIN > ADVOGADO > ESTAGIARIO > ATENDENTE
+  // Hierarquia de roles: ADMIN > ADVOGADO/ADVOGADA > SECRETARIA > ESTAGIARIO/ESTAGIARIA
   const roleOrder = {
-    'ADMIN': 4,
-    'ADVOGADO': 3,
+    'ADMIN': 5,
+    'ADVOGADO': 4,
+    'ADVOGADA': 4,
+    'SECRETARIA': 3,
     'ESTAGIARIO': 2,
-    'ATENDENTE': 1
+    'ESTAGIARIA': 2
   };
   
   return roleOrder[currentUserRole] >= roleOrder[requiredRole];
@@ -140,6 +142,8 @@ const setupAuthListener = () => {
       } else if (event === 'SIGNED_OUT') {
         currentUserRole = null;
         localStorage.removeItem('userRole');
+        localStorage.removeItem('supabaseToken');
+        localStorage.removeItem('userName');
       }
     });
     console.log('✅ Auth listener attached');

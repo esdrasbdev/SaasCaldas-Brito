@@ -15,7 +15,10 @@ async function carregarDashboard() {
   if (hora >= 18 || hora < 5) saudacao = 'Boa noite';
   
   const elSaudacao = document.getElementById('saudacao');
-  if (elSaudacao) elSaudacao.textContent = `${saudacao}, Bem-vindo(a)`;
+  const userName = localStorage.getItem('userName');
+  if (elSaudacao) {
+    elSaudacao.textContent = userName ? `${saudacao}, ${userName}` : `${saudacao}, Bem-vindo(a)`;
+  }
 
   // 2. Data formatada
   const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };

@@ -234,8 +234,10 @@ p {
   pointer-events: none;
 }
 
-.welcome-banner h1 {
-  color: white;
+.welcome-banner h1,
+.welcome-banner #saudacao,
+#saudacao {
+  color: #ffffff !important;
   font-size: 2rem;
   margin-bottom: 0.5rem;
 }
@@ -864,6 +866,7 @@ textarea:focus {
 
 .welcome-content h2, 
 .welcome-content h3 {
+  color: #ffffff !important;
   opacity: 0;
   transform: translateY(20px);
   animation: fadeInUp 0.5s ease forwards 0.1s;
@@ -1050,6 +1053,17 @@ body.dark-mode .toast {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 15px 20px;
+}
+
+/* Linha de formulário com campos lado a lado */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-row .form-group {
+  margin-bottom: 0;
 }
 
 .section-title {

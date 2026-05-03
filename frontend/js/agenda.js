@@ -292,10 +292,13 @@ const AgendaController = {
       e.preventDefault();
       try {
         const dataInput = document.getElementById('agenda-data').value;
-        // Converte o valor do input (local) para um objeto Date e depois para ISO (UTC)
-        const dataIso = dataInput ? new Date(dataInput).toISOString() : null;
-        
-        if (!dataIso) return showToast('Por favor, selecione a data e hora.', 'warning');
+        const horaInput = document.getElementById('agenda-hora').value;
+
+        if (!dataInput || !horaInput) return showToast('Por favor, selecione a data e hora.', 'warning');
+
+        // Combina data e hora no formato ISO
+        const dataIso = new Date(`${dataInput}T${horaInput}`).toISOString();
+
         if (!document.getElementById('agenda-titulo').value) return showToast('O título da reunião é obrigatório.', 'warning');
 
         const dados = {

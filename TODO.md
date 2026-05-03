@@ -1,9 +1,1 @@
-# Processo Modal COMPLETE (Identical to Cliente Style)
-
-✅ View button → full fetch (processo + audiencias/pericias)
-✅ Modal toggle view/edit, inputs disabled, close X
-✅ Populated info-grid + event lists
-✅ Delete stable, toasts everywhere
-✅ No page nav, ID error gone
-
-**Test:** google-chrome frontend/processos.html → eye button for exact cliente-like modal!
+# TODO: Fix Advogado Selection in Client Edit Form&#10;&#10;## Steps:&#10;1. [x] Create TODO.md (done)&#10;2. [x] Confirm file contents and apply fix to frontend/js/clientes.js&#10;3. [ ] Test and verify&#10;4. [ ] Mark complete&#10;

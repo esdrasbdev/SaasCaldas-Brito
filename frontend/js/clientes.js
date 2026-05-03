@@ -11,29 +11,14 @@ import { showToast } from './utils.js'; // Novo sistema de avisos
 // 1. MODEL (Gerencia Dados e Banco)
 // ==========================================
 const ClienteModel = {
-  async listarTodos() {
-    // Tentativa de busca com o nome do criador (join)
-    let { data, error } = await supabase
+async listarTodos() {
+    const { data, error } = await supabase
       .from('clientes')
-      .select('*, usuarios(nome)') // Busca também o nome de quem criou (se houver relação)
+      .select('*')
       .order('nome', { ascending: true });
     
-    // Se a busca com join falhar (ex: relação não existe no DB ainda), faz um fallback
-    if (error && (error.code === 'PGRST204' || error.code === 'PGRST200')) {
-      console.warn('Aviso: Relação "usuarios" não encontrada (Erro ' + error.code + '). Carregando dados sem o nome do criador.');
-      
-      // Busca simples, sem o join
-      const fallbackResult = await supabase
-        .from('clientes')
-        .select('*')
-        .order('nome', { ascending: true });
-
-      if (fallbackResult.error) throw fallbackResult.error; // Lança o erro do fallback se houver
-      return fallbackResult.data;
-    }
-
-    if (error) throw error; // Lança outros erros que não sejam de relação
-    return data; // Retorna dados do join se bem-sucedido
+    if (error) throw error;
+    return data;
   },
 
   async buscarPorId(id) {
@@ -256,11 +241,7 @@ const ClienteView = {
       document.getElementById('cliente-bairro').value = cliente.bairro || '';
       document.getElementById('cliente-cidade').value = cliente.cidade || '';
       document.getElementById('cliente-estado').value = cliente.estado || '';
-      // Previdenciário
-      document.getElementById('cliente-inss-senha').value = cliente.inss_senha || '';
-      document.getElementById('cliente-inss-cpf').value = cliente.documento || '';
-
-      this.renderizarSessaoDocumentos(cliente.id, visualizacao);
+      // Set advogado selection\n      if (cliente.advogado_id) {\n        document.getElementById('cliente-advogado').value = cliente.advogado_id;\n      }\n      // Previdenciário\n      document.getElementById('cliente-inss-senha').value = cliente.inss_senha || '';\n      document.getElementById('cliente-inss-cpf').value = cliente.documento || '';\n\n      this.renderizarSessaoDocumentos(cliente.id, visualizacao);
       // Ajuste para garantir que a seção de documentos não quebre o grid dos inputs
       containerDocs.style.order = "99"; 
     } else {
@@ -350,7 +331,28 @@ const ClienteController = {
   async init() {
     ClienteView.init();
     this.bindEvents();
+    await this.carregarAdvogados();
     await this.carregarDados();
+  },
+
+  async carregarAdvogados() {
+    const select = document.getElementById('cliente-advogado');
+    if (!select) return;
+
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('id, nome')
+      .in('role', ['ADMIN', 'ADVOGADO', 'ADVOGADA'])
+      .eq('ativo', true)
+      .order('nome');
+
+    if (error) {
+      console.error('Erro ao carregar advogados:', error);
+      return;
+    }
+
+    select.innerHTML = '<option value="">Selecione...</option>' +
+      data.map(a => `<option value="${a.id}">${a.nome}</option>`).join('');
   },
 
   bindEvents() {
@@ -521,8 +523,9 @@ const ClienteController = {
       documento: getVal('cliente-documento'),
       email: getVal('cliente-email'),
       telefone: getVal('cliente-telefone'),
-      inss_senha: getVal('cliente-inss-senha'), // Novo campo
-      usuario_id: usuarioIdReferencia // Vínculo de auditoria corrigido aqui
+      inss_senha: getVal('cliente-inss-senha'),
+      advogado_id: getVal('cliente-advogado'),
+      usuario_id: usuarioIdReferencia
     };
 
     // Validação Obrigatória Dinâmica

@@ -69,10 +69,12 @@ const AdminView = {
                 <div class="form-group">
                   <label for="user-role">Nível de Acesso</label>
                   <select id="user-role" required>
-                    <option value="ADMIN">ADMIN (Acesso Total)</option>
+                    <option value="ADMIN">ADMIN (Acesso total)</option>
                     <option value="ADVOGADO">ADVOGADO</option>
+                    <option value="ADVOGADA">ADVOGADA</option>
+                    <option value="SECRETARIA">SECRETÁRIA</option>
                     <option value="ESTAGIARIO">ESTAGIÁRIO</option>
-                    <option value="ATENDENTE">ATENDENTE</option>
+                    <option value="ESTAGIARIA">ESTAGIÁRIA</option>
                   </select>
                 </div>
 
