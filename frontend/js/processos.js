@@ -85,7 +85,7 @@ const ProcessoView = {
     `).join('');
   },
 
-  abrirModal(processo = null, isView = false) {
+abrirModal(processo = null, isView = false) {
     const modal = document.getElementById('modal-container');
     const titulo = document.getElementById('modal-titulo');
     const form = document.getElementById('form-processo');
@@ -119,6 +119,11 @@ const ProcessoView = {
     }
 
     modal.style.display = 'flex';
+  },
+
+  fecharModal() {
+    document.getElementById('modal-container').style.display = 'none';
+    document.getElementById('form-processo').reset();
   }
 };
 
@@ -132,6 +137,9 @@ const ProcessoController = {
   },
 
   bindEvents(isAdmin) {
+    // Cancel button
+    document.getElementById('btn-cancelar').onclick = () => ProcessoView.fecharModal();
+
     // Novo
     document.getElementById('btn-novo-processo').onclick = () => ProcessoView.abrirModal();
 
@@ -149,10 +157,11 @@ const ProcessoController = {
         if (id) await ProcessoModel.atualizar(id, payload);
         else await ProcessoModel.criar(payload);
         showToast(id ? 'Atualizado!' : 'Criado!', 'success');
-        document.getElementById('modal-container').style.display = 'none';
-        await this.loadAll();
       } catch (err) {
         showToast('Erro: ' + err.message, 'error');
+      } finally {
+        ProcessoView.fecharModal();
+        await this.loadAll();
       }
     };
 

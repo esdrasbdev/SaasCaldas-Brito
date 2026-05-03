@@ -13,19 +13,24 @@ import { showToast } from './utils.js';
 const AgendaModel = {
   async listarTudo() {
     // Busca Atendimentos
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Usuário não autenticado');
+    
+    const { data: usuarioDB } = await supabase
+      .from('usuarios')
+      .select('id')
+      .eq('email', user.email)
+      .single();
+    
     const { data, error } = await supabase
       .from('atendimentos')
       .select('*, clientes(nome)')
+      .eq('usuario_id', usuarioDB.id)
       .order('data', { ascending: true });
 
     if (error) throw error;
 
-    // TODO: Para uma agenda REALMENTE unificada, você deve buscar 'audiencias' e 'pericias' aqui
-    // e concatenar no array 'lista' abaixo.
-
     const lista = [];
-
-    // Normaliza Reuniões (Atendimentos Futuros)
     if (data) {
       data.forEach(r => {
         lista.push({
@@ -33,7 +38,7 @@ const AgendaModel = {
           tipo: 'REUNIAO',
           data: r.data,
           titulo: r.titulo || 'Reunião com Cliente',
-          local: 'Escritório / Online',
+          local: r.canal || 'Escritório / Online',
           processo: '-',
           cliente: r.clientes?.nome || 'Avulso',
           obs: r.anotacoes
@@ -41,8 +46,6 @@ const AgendaModel = {
       });
     }
 
-    // Ordena por data (mais recente primeiro ou futuro primeiro)
-    // Aqui ordenamos data crescente (próximos eventos)
     return lista.sort((a, b) => new Date(a.data) - new Date(b.data));
   },
 

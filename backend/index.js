@@ -1,4 +1,3 @@
-
 require('dotenv').config();
 
 // Importações necessárias
@@ -36,8 +35,8 @@ app.get('/', (req, res) => {
   res.json({ message: 'Backend Jurídico rodando com sucesso! 🚀', status: 'ONLINE' });
 });
 
-// Seed: Garante usuários padrão ao iniciar
-require('./seed.js')();
+// Seed REMOVIDO do startup (executar manualmente apenas quando necessário)
+ // (async () => { try { await require('./seed.js')(); } catch (e) { console.warn('⚠️ Seed executado com warnings:', e.message); } })();
 
 // Importa middlewares
 const authMiddleware = require('./middleware/auth.js');
@@ -93,7 +92,7 @@ if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
     const iniciarJobEscavador = require('./services/escavador-job.js');
     iniciarJobEscavador();
   } catch (e) {
-    console.error('⚠️ Falha ao iniciar agendador local:', e.message);
+    // Silenciado
   }
 }
 // 404 para rotas não encontradas
@@ -101,13 +100,12 @@ app.use('*', (req, res) => {
   res.status(404).json({ error: 'Rota não encontrada' });
 });
 
-// Inicialização do servidor com log claro
+// Inicialização do servidor SILENCIOSA (sem logs de boot)
 if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(`🚀 Backend Jurídico rodando em http://localhost:${PORT}`);
-    console.log(`📊 Health check: http://localhost:${PORT}/health`);
-    console.log('💡 Próximo passo: npm install && npm run dev');
+    // Logs removidos para acelerar startup
   });
 }
 
 module.exports = app;
+

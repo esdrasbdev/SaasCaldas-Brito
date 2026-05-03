@@ -2,9 +2,10 @@
  * Script para garantir que os usuários padrão existam
  * Roda automaticamente ao iniciar o backend
  */
-const supabase = require('./supabase.js');
+const { getAdminClient } = require('./supabase.js');
 
 async function seedUsers() {
+  const supabase = getAdminClient();
   const users = [
     { nome: 'Antonio', email: 'antoniocaldas.adv@gmail.com', pass: 'admin123', role: 'ADMIN' },
     { nome: 'Priscila', email: 'priscila.adv17@gmail.com', pass: 'admin123', role: 'ADMIN' },
@@ -20,7 +21,7 @@ async function seedUsers() {
 
   for (const u of users) {
     // Buscar usuário existente no Auth
-    const { data: list } = await supabase.auth.admin.listUsers();
+    const { data: list = { users: [] } } = await supabase.auth.admin.listUsers().catch(() => ({})) || {};
     let existing = list.users.find(au => au.email.toLowerCase() === u.email.toLowerCase());
 
     let userId = existing?.id;

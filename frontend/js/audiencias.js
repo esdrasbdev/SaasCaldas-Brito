@@ -207,8 +207,8 @@ const AudienciaController = {
     document.getElementById('form-audiencia').onsubmit = async (e) => {
       e.preventDefault();
       
-      const dataStr = document.getElementById('audiencia-data').value;
-      const horaStr = document.getElementById('audiencia-hora').value;
+      const dataStr = document.getElementById('aud-data').value;
+      const horaStr = document.getElementById('aud-hora').value;
       
       // Criamos o objeto Date garantindo que o navegador entenda como hora local
       // O uso do construtor Date com string YYYY-MM-DDTHH:mm sem sufixo 'Z' assume local
@@ -216,26 +216,41 @@ const AudienciaController = {
 
       // Recupera ID do usuário atual para ser o "advogado_id"
       const { data: { user } } = await supabase.auth.getUser();
-      // Busca ID na tabela usuarios
-      const { data: uData } = await supabase.from('usuarios').select('id').eq('email', user.email).single();
+      if (!user) {
+        showToast('Usuário não autenticado', 'error');
+        return;
+      }
+      
+      // Busca ID na tabela usuarios com null check
+      const { data: uData, error: userError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('email', user.email)
+        .single();
+      
+      if (userError || !uData) {
+        showToast('Usuário não encontrado no banco', 'error');
+        return;
+      }
 
       const payload = {
         processo_id: document.getElementById('aud-processo').value || null,
         data: dataIso,
         tipo: document.getElementById('aud-tipo').value,
         local: document.getElementById('aud-local').value,
-        observacoes: document.getElementById('aud-obs').value,
-        advogado_id: uData?.id // CORREÇÃO: Usa advogado_id, não usuario_id
+        observacoes: document.getElementById('aud-obs').value || '',
+        advogado_id: uData.id
       };
 
       try {
         await AudienciaModel.criar(payload);
         showToast('Audiência agendada!', 'success');
-        AudienciaView.modal(false);
-        this.carregarDados();
       } catch (error) {
         console.error(error);
         showToast('Erro ao salvar: ' + error.message, 'error');
+      } finally {
+        AudienciaView.modal(false);
+        this.carregarDados();
       }
     };
   }
