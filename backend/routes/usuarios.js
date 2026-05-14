@@ -7,7 +7,7 @@ const { sanitizarString } = require('../utils/validar');
 
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabasePublic
       .from('usuarios')
       .select('*')
       .order('nome');

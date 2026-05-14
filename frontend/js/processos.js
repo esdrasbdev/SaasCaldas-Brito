@@ -98,16 +98,21 @@ abrirModal(processo = null, isView = false) {
     inputs.forEach(el => el.disabled = isView);
     btnSalvar.style.display = isView ? 'none' : 'block';
 
-    // Close X
-    let closeBtn = modal.querySelector('.btn-close-modal');
-    if (!closeBtn) {
-      closeBtn = document.createElement('button');
-      closeBtn.className = 'btn-close-modal';
-      closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-      closeBtn.onclick = () => modal.style.display = 'none';
-      closeBtn.style.cssText = 'position:absolute;top:15px;right:20px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#6b7280;';
-      modal.querySelector('.modal-header').appendChild(closeBtn);
-    }
+    // Close X (sempre consistente: remove duplicados e usa fecharModal)
+    const existente = modal.querySelector('.btn-close-modal');
+    if (existente) existente.remove();
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'btn-close-modal';
+    closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      ProcessoView.fecharModal();
+    });
+    closeBtn.style.cssText = 'position:absolute;top:15px;right:20px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#6b7280;';
+    modal.querySelector('.modal-header').appendChild(closeBtn);
+
 
     // Populate
     if (processo) {
@@ -116,7 +121,18 @@ abrirModal(processo = null, isView = false) {
       document.getElementById('proc-tribunal').value = processo.tribunal || '';
       document.getElementById('proc-vara').value = processo.vara || '';
       document.getElementById('proc-cliente').value = processo.clientes?.id || processo.cliente_id || '';
+
+      const selectAdv = document.getElementById('proc-advogado');
+      if (selectAdv && processo.advogado_id) {
+        selectAdv.value = processo.advogado_id;
+      }
+
+      const statusSelect = document.getElementById('proc-status');
+      if (statusSelect && processo.status) {
+        statusSelect.value = processo.status;
+      }
     }
+
 
     modal.style.display = 'flex';
   },
@@ -148,10 +164,12 @@ const ProcessoController = {
       e.preventDefault();
       const id = document.getElementById('proc-id').value;
       const payload = {
-        numero_cnj: document.getElementById('proc-cnj').value,
-        tribunal: document.getElementById('proc-tribunal').value,
-        vara: document.getElementById('proc-vara').value,
-        cliente_id: document.getElementById('proc-cliente').value || null
+        numero_cnj: document.getElementById('proc-cnj').value || null,
+        tribunal: document.getElementById('proc-tribunal').value || null,
+        vara: document.getElementById('proc-vara').value || null,
+        cliente_id: document.getElementById('proc-cliente').value || null,
+        status: document.getElementById('proc-status')?.value || 'ATIVO',
+        advogado_id: document.getElementById('proc-advogado')?.value || null
       };
       try {
         if (id) await ProcessoModel.atualizar(id, payload);
@@ -196,6 +214,7 @@ const ProcessoController = {
     const isAdmin = AuthAPI.getRole() === 'ADMIN';
     ProcessoView.renderizarTabela(this.data, isAdmin);
     await this.loadClientes();
+    await this.loadAdvogados();
   },
 
   filter() {
@@ -213,6 +232,27 @@ const ProcessoController = {
     const { data } = await supabase.from('clientes').select('id, nome').order('nome');
     const select = document.getElementById('proc-cliente');
     select.innerHTML = '<option value="">Cliente...</option>' + (data || []).map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+  },
+
+  async loadAdvogados() {
+    const select = document.getElementById('proc-advogado');
+    if (!select) return;
+
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('id, nome')
+      .in('role', ['ADMIN', 'ADVOGADO', 'ADVOGADA'])
+      .eq('ativo', true)
+      .order('nome');
+
+    if (error) {
+      console.error('Erro ao carregar advogados:', error);
+      select.innerHTML = '<option value="">Selecione...</option>';
+      return;
+    }
+
+    select.innerHTML = '<option value="">Selecione...</option>' +
+      (data || []).map(a => `<option value="${a.id}">${a.nome}</option>`).join('');
   }
 };
 

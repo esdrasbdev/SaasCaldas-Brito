@@ -20,7 +20,7 @@ async function carregarProcesso() {
     .select(`
       *,
       clientes(nome),
-      usuarios(nome)
+      advogado:usuarios!advogado_id(nome)
     `)
     .eq('id', processoId)
     .single();
@@ -36,7 +36,7 @@ async function carregarProcesso() {
   document.getElementById('tribunal-detalhe').textContent = data.tribunal || '-';
   document.getElementById('vara-detalhe').textContent = data.vara || '-';
   document.getElementById('cliente-nome').textContent = data.clientes?.nome || '-';
-  document.getElementById('advogado-nome').textContent = data.usuarios?.nome || '-';
+  document.getElementById('advogado-nome').textContent = data.advogado?.nome || '-' ;
   document.getElementById('criado-em').textContent = new Date(data.criado_em).toLocaleDateString('pt-BR');
   
   document.getElementById('loading-screen').style.display = 'none';

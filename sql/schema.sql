@@ -84,6 +84,18 @@ create table atendimentos (
   anotacoes text
 );
 
+-- Vínculo (participantes) de um atendimento/agendamento
+-- Mantém múltiplos clientes e múltiplos usuários participantes.
+create table atendimento_participantes (
+  id uuid primary key default gen_random_uuid(),
+  atendimento_id uuid references atendimentos(id) on delete cascade,
+  cliente_id uuid references clientes(id) on delete cascade,
+  usuario_id uuid references usuarios(id) on delete cascade,
+  tipo text not null check (tipo in ('CLIENTE', 'USUARIO')),
+  criado_em timestamptz default now(),
+  unique (atendimento_id, tipo, cliente_id, usuario_id)
+);
+
 -- Tabela de documentos (com Supabase Storage)
 create table documentos (
   id uuid primary key default gen_random_uuid(),
@@ -135,13 +147,14 @@ create policy "escrita_usuarios_admin" on usuarios for all
   using ((select role from usuarios where email = auth.jwt() ->> 'email') = 'ADMIN');
 
 -- Aplicar padrão autenticados para demais tabelas
+-- OBS: RLS simplificado conforme schema original.
 do $$
 declare
   tabela text;
 begin
   foreach tabela in array ARRAY[
     'clientes', 'processos', 'audiencias', 'pericias', 
-    'atendimentos', 'documentos'
+    'atendimentos', 'atendimento_participantes', 'documentos'
   ] loop
     execute 'alter table ' || tabela || ' enable row level security;';
     execute 'create policy "leitura_autenticados" on ' || tabela || 
@@ -166,5 +179,6 @@ select 'Schema criado com sucesso! 2 admins inseridos.' as mensagem;
 select count(*) as total_tabelas from information_schema.tables 
   where table_schema = 'public' and table_name in (
     'usuarios','clientes','processos','audiencias','pericias',
-    'atendimentos','documentos','publicacoes'
+    'atendimentos','atendimento_participantes','documentos','publicacoes'
   );
+

@@ -602,7 +602,7 @@ textarea:focus {
   width: 95%;
   max-width: 1000px; /* Ponto de equilíbrio ideal */
   max-height: 90vh;
-  overflow-y: auto;
+  overflow-y: visible; /* Evita corte de dropdowns de <select> dentro de modais */
   background: var(--branco);
   border-radius: 12px;
   padding: 24px;
@@ -611,6 +611,7 @@ textarea:focus {
   display: flex;
   flex-direction: column;
 }
+
 
 .modal-header {
   padding: 24px;

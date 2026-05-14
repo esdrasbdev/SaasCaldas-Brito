@@ -16,21 +16,41 @@ const AudienciaModel = {
       .from('audiencias')
       .select('*, processos(numero_cnj, clientes(nome)), usuarios(nome)')
       .order('data', { ascending: true });
-    
+
+    if (error) throw error;
+    return data;
+  },
+
+  async buscarPorId(id) {
+    const { data, error } = await supabase
+      .from('audiencias')
+      .select('*, processos(numero_cnj, clientes(nome)), usuarios(nome)')
+      .eq('id', id)
+      .single();
+
     if (error) throw error;
     return data;
   },
 
   async criar(audiencia) {
-    // CORREÇÃO AQUI: Removemos campos que não existem na tabela se vierem nulos
     const { data, error } = await supabase
       .from('audiencias')
       .insert([audiencia])
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
+  },
+
+  async atualizar(id, dados) {
+    const { error } = await supabase
+      .from('audiencias')
+      .update(dados)
+      .eq('id', id);
+
+    if (error) throw error;
+    return true;
   },
 
   async deletar(id) {
@@ -39,6 +59,7 @@ const AudienciaModel = {
     return true;
   }
 };
+
 
 // ==========================================
 // 2. VIEW
@@ -156,12 +177,17 @@ const AudienciaView = {
             <div style="font-size: 0.85rem; margin-top: 4px;">${a.local || 'Virtual'}</div>
           </td>
           <td style="text-align: right;">
-            <button class="btn-sm btn-delete" data-id="${a.id}" style="color: #ef4444;"><i class="fa-solid fa-trash"></i></button>
+            <button class="btn-sm btn-view" data-id="${a.id}" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
+            <button class="btn-sm btn-edit" data-id="${a.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
+            <button class="btn-sm btn-delete" data-id="${a.id}" title="Excluir" style="color: #ef4444;">
+              <i class="fa-solid fa-trash"></i>
+            </button>
           </td>
         </tr>
       `;
     }).join('');
   },
+
 
   preencherSelectProcessos(processos) {
     const select = document.getElementById('aud-processo');
@@ -172,9 +198,68 @@ const AudienciaView = {
   modal(abrir) {
     const el = document.getElementById('modal-audiencia');
     el.style.display = abrir ? 'flex' : 'none';
-    if (!abrir) document.getElementById('form-audiencia').reset();
+    if (!abrir) {
+      document.getElementById('form-audiencia').reset();
+      const form = document.getElementById('form-audiencia');
+      if (form) form.dataset.editId = '';
+    }
+  },
+
+  abrirModal(audiencia = null, isView = false) {
+    const modal = document.getElementById('modal-audiencia');
+    const form = document.getElementById('form-audiencia');
+
+    document.querySelector('#modal-audiencia .modal-header h2').textContent = audiencia
+      ? (isView ? 'Visualizar Audiência' : 'Editar Audiência')
+      : 'Agendar Audiência';
+
+    // Close X
+    const header = modal.querySelector('.modal-header');
+    const existente = header.querySelector('.btn-close-modal');
+    if (existente) existente.remove();
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'btn-close-modal';
+    closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    closeBtn.style.cssText = 'position:absolute;top:15px;right:20px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#6b7280;';
+    closeBtn.addEventListener('click', () => AudienciaView.modal(false));
+    header.appendChild(closeBtn);
+
+    const inputs = form.querySelectorAll('input, select, textarea');
+    inputs.forEach(el => el.disabled = isView);
+
+    const btnSalvar = form.querySelector('button[type="submit"]');
+    if (btnSalvar) btnSalvar.style.display = isView ? 'none' : 'block';
+
+    form.dataset.editId = audiencia && !isView ? audiencia.id : (audiencia && isView ? audiencia.id : '');
+
+    if (audiencia) {
+      document.getElementById('aud-processo').value = audiencia.processo_id || audiencia.processos?.id || '';
+
+      const dataObj = new Date(audiencia.data);
+      const ano = dataObj.getFullYear();
+      const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
+      const dia = String(dataObj.getDate()).padStart(2, '0');
+      document.getElementById('aud-data').value = `${ano}-${mes}-${dia}`;
+
+      const hh = String(dataObj.getHours()).padStart(2, '0');
+      const mm = String(dataObj.getMinutes()).padStart(2, '0');
+      document.getElementById('aud-hora').value = `${hh}:${mm}`;
+
+      document.getElementById('aud-tipo').value = audiencia.tipo || '';
+      document.getElementById('aud-local').value = audiencia.local || '';
+      document.getElementById('aud-obs').value = audiencia.observacoes || '';
+
+    } else {
+      form.reset();
+      form.dataset.editId = '';
+    }
+
+    modal.style.display = 'flex';
   }
 };
+
 
 // ==========================================
 // 3. CONTROLLER
@@ -194,40 +279,69 @@ const AudienciaController = {
   async carregarDados() {
     try {
       const dados = await AudienciaModel.listarTodas();
-      AudienciaView.renderizarTabela(dados);
+      this.data = dados || [];
+      AudienciaView.renderizarTabela(dados || []);
     } catch (error) {
       showToast('Erro ao listar audiências', 'error');
     }
   },
 
   bindEvents() {
-    document.getElementById('btn-nova-audiencia').onclick = () => AudienciaView.modal(true);
+    document.getElementById('btn-nova-audiencia').onclick = () => AudienciaView.abrirModal(null, false);
     document.getElementById('btn-cancelar-aud').onclick = () => AudienciaView.modal(false);
+
+    document.getElementById('lista-audiencias-body').addEventListener('click', async (e) => {
+      const btnView = e.target.closest('.btn-view');
+      const btnEdit = e.target.closest('.btn-edit');
+      const btnDelete = e.target.closest('.btn-delete');
+
+      const role = AuthAPI.getRole();
+      const isAdmin = role === 'ADMIN';
+      const isAdv = ['ADMIN','ADVOGADO','ADVOGADA'].includes(role);
+
+      if (btnView || btnEdit) {
+        if (btnEdit && !isAdv) return;
+
+        const id = (btnView || btnEdit).dataset.id;
+        const audiencia = (this.data || []).find(a => a.id === id);
+        const alvo = audiencia || await AudienciaModel.buscarPorId(id);
+        if (alvo) AudienciaView.abrirModal(alvo, !!btnView);
+        return;
+      }
+
+      if (btnDelete) {
+        if (!isAdmin) return;
+        if (!confirm('Deseja realmente excluir esta audiência?')) return;
+
+        await AudienciaModel.deletar(btnDelete.dataset.id);
+        showToast('Excluída com sucesso!', 'success');
+        await this.carregarDados();
+      }
+    });
+
+
 
     document.getElementById('form-audiencia').onsubmit = async (e) => {
       e.preventDefault();
-      
+
       const dataStr = document.getElementById('aud-data').value;
       const horaStr = document.getElementById('aud-hora').value;
-      
-      // Criamos o objeto Date garantindo que o navegador entenda como hora local
-      // O uso do construtor Date com string YYYY-MM-DDTHH:mm sem sufixo 'Z' assume local
+
       const dataIso = new Date(`${dataStr}T${horaStr}`).toISOString();
 
-      // Recupera ID do usuário atual para ser o "advogado_id"
+      // Recupera ID do usuário atual
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         showToast('Usuário não autenticado', 'error');
         return;
       }
-      
-      // Busca ID na tabela usuarios com null check
+
       const { data: uData, error: userError } = await supabase
         .from('usuarios')
         .select('id')
         .eq('email', user.email)
         .single();
-      
+
       if (userError || !uData) {
         showToast('Usuário não encontrado no banco', 'error');
         return;
@@ -242,9 +356,16 @@ const AudienciaController = {
         advogado_id: uData.id
       };
 
+      const editId = document.getElementById('form-audiencia').dataset.editId || '';
+
       try {
-        await AudienciaModel.criar(payload);
-        showToast('Audiência agendada!', 'success');
+        if (editId) {
+          await AudienciaModel.atualizar(editId, payload);
+          showToast('Audiência atualizada!', 'success');
+        } else {
+          await AudienciaModel.criar(payload);
+          showToast('Audiência agendada!', 'success');
+        }
       } catch (error) {
         console.error(error);
         showToast('Erro ao salvar: ' + error.message, 'error');
@@ -253,7 +374,11 @@ const AudienciaController = {
         this.carregarDados();
       }
     };
+
+
+
   }
 };
+
 
 document.addEventListener('DOMContentLoaded', () => AudienciaController.init());

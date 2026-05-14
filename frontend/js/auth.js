@@ -135,22 +135,22 @@ async function initAuth() {
 
 // Listener para mudanças de autenticação (race-condition safe)
 const setupAuthListener = () => {
-  if (window.supabase?.auth?.onAuthStateChange) {
-    window.supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN') {
-        await fetchUserRole();
-      } else if (event === 'SIGNED_OUT') {
-        currentUserRole = null;
-        localStorage.removeItem('userRole');
-        localStorage.removeItem('supabaseToken');
-        localStorage.removeItem('userName');
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN') {
+      await fetchUserRole();
+    } else if (event === 'SIGNED_OUT') {
+      currentUserRole = null;
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('supabaseToken');
+      localStorage.removeItem('userName');
+      window.location.href = 'login.html';
+    } else if (event === 'TOKEN_REFRESHED') {
+      // Atualiza token salvo
+      if (session?.access_token) {
+        localStorage.setItem('supabaseToken', session.access_token);
       }
-    });
-    console.log('✅ Auth listener attached');
-  } else {
-    console.log('Supabase not ready, waiting...');
-    window.addEventListener('supabase-ready', () => setupAuthListener(), { once: true });
-  }
+    }
+  });
 };
 setupAuthListener();
 

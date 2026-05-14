@@ -11,10 +11,10 @@ import { showToast } from './utils.js'; // Novo sistema de avisos
 // 1. MODEL (Gerencia Dados e Banco)
 // ==========================================
 const ClienteModel = {
-async listarTodos() {
+  async listarTodos() {
     const { data, error } = await supabase
       .from('clientes')
-      .select('*')
+      .select('*, criador:usuarios!usuario_id(nome), advogado:usuarios!advogado_id(nome, id)')
       .order('nome', { ascending: true });
     
     if (error) throw error;
@@ -75,7 +75,14 @@ async listarTodos() {
     });
     
     if (res.status === 401) {
-      showToast('Sessão expirada. Por favor, saia e entre novamente.', 'error');
+      // 401 do backend pode ser token expirado OU usuário sem permissão (RLS)
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      if (!refreshed.session) {
+        showToast('Sessão expirada. Faça login novamente.', 'error');
+        window.location.href = 'login.html';
+      } else {
+        showToast('Sem permissão para acessar documentos deste cliente.', 'warning');
+      }
       return [];
     }
 
@@ -147,7 +154,7 @@ const ClienteView = {
             <span style="font-weight: 600; color: var(--azul-escuro);">${c.nome}</span>
             <span style="font-size: 0.75rem; color: var(--cinza-medio); margin-top: 2px;">
               ${c.tipo === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'} 
-              ${c.usuarios?.nome ? `• Criado por <strong>${c.usuarios.nome.split(' ')[0]}</strong>` : ''}
+              ${c.criador?.nome ? `• Criado por <strong>${c.criador.nome.split(' ')[0]}</strong>` : ''}
             </span>
           </div>
         </td>
@@ -241,7 +248,16 @@ const ClienteView = {
       document.getElementById('cliente-bairro').value = cliente.bairro || '';
       document.getElementById('cliente-cidade').value = cliente.cidade || '';
       document.getElementById('cliente-estado').value = cliente.estado || '';
-      // Set advogado selection\n      if (cliente.advogado_id) {\n        document.getElementById('cliente-advogado').value = cliente.advogado_id;\n      }\n      // Previdenciário\n      document.getElementById('cliente-inss-senha').value = cliente.inss_senha || '';\n      document.getElementById('cliente-inss-cpf').value = cliente.documento || '';\n\n      this.renderizarSessaoDocumentos(cliente.id, visualizacao);
+      // Pré-seleciona o advogado responsável no select
+      const selectAdv = document.getElementById('cliente-advogado');
+      if (selectAdv && cliente.advogado_id) {
+        selectAdv.value = cliente.advogado_id;
+      }
+
+      document.getElementById('cliente-inss-senha').value = cliente.inss_senha || '';
+      document.getElementById('cliente-inss-cpf').value = cliente.documento || '';
+
+      this.renderizarSessaoDocumentos(cliente.id, visualizacao);
       // Ajuste para garantir que a seção de documentos não quebre o grid dos inputs
       containerDocs.style.order = "99"; 
     } else {
@@ -516,7 +532,6 @@ const ClienteController = {
     }
 
     // Prepara objeto APENAS com colunas que existem no banco para evitar erro PGRST204
-    // Campos de endereço removidos temporariamente do envio até que a tabela seja atualizada
     const payload = {
       nome: getVal('cliente-nome'),
       tipo: document.getElementById('cliente-tipo').value,
@@ -525,6 +540,15 @@ const ClienteController = {
       telefone: getVal('cliente-telefone'),
       inss_senha: getVal('cliente-inss-senha'),
       advogado_id: getVal('cliente-advogado'),
+      nacionalidade: getVal('cliente-nacionalidade'),
+      estado_civil: getVal('cliente-estado-civil'),
+      profissao: getVal('cliente-profissao'),
+      cep: getVal('cliente-cep'),
+      endereco: getVal('cliente-endereco'),
+      numero: getVal('cliente-numero'),
+      bairro: getVal('cliente-bairro'),
+      cidade: getVal('cliente-cidade'),
+      estado: getVal('cliente-estado'),
       usuario_id: usuarioIdReferencia
     };
 

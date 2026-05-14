@@ -59,20 +59,37 @@
                 </div>
               </div>
 
-              <!-- Vínculo a Participantes (para Reunião) -->
+<!-- Vínculo a Participantes (para Reunião) -->
               <div id="bloco-participantes" style="display: none;">
-                <p style="font-size: 0.8rem; color: var(--cinza-medio); margin-top: -10px; margin-bottom: 10px;">Selecione quem participará da reunião:</p>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                    <div class="form-group">
-                      <label>Clientes</label>
-                      <div id="agenda-clientes-list" class="checkbox-list-container"></div>
-                    </div>
-                    <div class="form-group">
-                      <label>Equipe Interna</label>
-                      <div id="agenda-usuarios-list" class="checkbox-list-container"></div>
-                    </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin: 0 0 10px;">
+                  <div>
+                    <div style="font-weight:800; color: var(--azul-escuro);">Participantes</div>
+                    <div style="font-size:0.78rem; color: var(--cinza-medio);">Busque e selecione clientes e equipe interna para este agendamento.</div>
+                  </div>
+                  <div style="font-size:0.75rem; color: var(--cinza-medio); padding:6px 10px; border:1px solid var(--cinza-borda); border-radius:999px; background:#fff;">
+                    Busca + seleção
+                  </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                  <div class="form-group">
+                    <label>Clientes</label>
+                    <input type="text" id="agenda-clientes-busca" placeholder="Buscar cliente..." style="width:100%; padding:10px; border:1px solid var(--cinza-borda); border-radius:8px;">
+                    <div id="agenda-clientes-result" style="margin-top:8px; display:none; border:1px solid var(--cinza-borda); border-radius:10px; background:#fff; padding:8px; max-height:160px; overflow-y:auto;"></div>
+                    <div id="agenda-clientes-selecionados" style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px;"></div>
+                    <input type="hidden" id="agenda-clientes-ids">
+                  </div>
+
+                  <div class="form-group">
+                    <label>Equipe Interna</label>
+                    <input type="text" id="agenda-usuarios-busca" placeholder="Buscar usuário..." style="width:100%; padding:10px; border:1px solid var(--cinza-borda); border-radius:8px;">
+                    <div id="agenda-usuarios-result" style="margin-top:8px; display:none; border:1px solid var(--cinza-borda); border-radius:10px; background:#fff; padding:8px; max-height:160px; overflow-y:auto;"></div>
+                    <div id="agenda-usuarios-selecionados" style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px;"></div>
+                    <input type="hidden" id="agenda-usuarios-ids">
+                  </div>
                 </div>
               </div>
+
 
               <!-- Vínculos Gerais (Cliente e Processo) -->
               <div id="bloco-vinculos" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">

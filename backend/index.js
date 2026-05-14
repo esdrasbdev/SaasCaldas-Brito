@@ -17,6 +17,8 @@ app.use(cors({
     'http://127.0.0.1:8080',
     'http://localhost:3000', // Padrão npx serve
     'http://localhost:5000'  // Alternativa npx serve
+    ,
+    'https://saas-caldas-brito.vercel.app'  // adicionar esta linha
   ],
   credentials: true
 }));

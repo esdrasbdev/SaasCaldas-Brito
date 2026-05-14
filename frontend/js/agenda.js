@@ -1,7 +1,3 @@
-/*
- * Módulo Agenda - Arquitetura MVC
- * Lista unificada de Audiências e Perícias em formato de tabela
- */
 
 import { supabase } from './supabase.js';
 import { AuthAPI } from './auth.js';
@@ -12,7 +8,9 @@ import { showToast } from './utils.js';
 // ==========================================
 const AgendaModel = {
   async listarTudo() {
-    // Busca Atendimentos
+    // Busca Atendimentos (agenda/reuniões)
+    // (status badge será sempre REUNIÃO)
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Usuário não autenticado');
     
@@ -50,33 +48,132 @@ const AgendaModel = {
   },
 
   async criar(dados) {
-    // Converte string vazia para null (evita erro de UUID inválido no Supabase)
     const sanitizeUUID = (val) => (val && val.trim() !== '') ? val : null;
 
-    // A agenda agora gerencia exclusivamente Atendimentos (Reuniões)
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Usuário não autenticado');
 
     // Busca ID do usuário na tabela pública
     const { data: uData } = await supabase.from('usuarios').select('id').eq('email', user.email).single();
-    
-    // Constrói a anotação com os participantes
-    const nomesClientes = dados.participantes.clientes.map(c => c.nome).join(', ');
-    const nomesUsuarios = dados.participantes.usuarios.map(u => u.nome).join(', ');
-    let participantesStr = [nomesClientes, nomesUsuarios].filter(Boolean).join(' e ');
-    if (!participantesStr) participantesStr = 'N/A';
 
-    const payload = { 
+    // Cria o atendimento (o agendamento da agenda)
+    const payload = {
       titulo: dados.titulo || 'Reunião',
-      data: dados.data, 
+      data: dados.data,
       cliente_id: sanitizeUUID(dados.cliente_id),
       usuario_id: uData?.id || null,
-      canal: dados.local || 'Escritório', // Mapeia local para canal de atendimento
-      anotacoes: `[Agendamento] Participantes: ${participantesStr}. Obs: ${dados.obs || ''}`
+      canal: dados.local || 'Escritório',
+      anotacoes: (dados.obs || '')
     };
 
-    const { error } = await supabase.from('atendimentos').insert([payload]);
+    const { data: created, error } = await supabase
+      .from('atendimentos')
+      .insert([payload])
+      .select('id')
+      .single();
+
     if (error) throw error;
+
+    // Persiste vínculos de participantes (clientes + usuários)
+    const clienteParticipantes = (dados.participantes?.clientes || []).map(c => ({
+      atendimento_id: created.id,
+      tipo: 'CLIENTE',
+      cliente_id: sanitizeUUID(c.id)
+    }));
+
+    const usuarioParticipantes = (dados.participantes?.usuarios || []).map(u => ({
+      atendimento_id: created.id,
+      tipo: 'USUARIO',
+      usuario_id: sanitizeUUID(u.id)
+    }));
+
+    const participantesPayload = [...clienteParticipantes, ...usuarioParticipantes]
+      .filter(p => p.cliente_id || p.usuario_id);
+
+    if (participantesPayload.length) {
+      try {
+        const { error: vErr } = await supabase
+          .from('atendimento_participantes')
+          .insert(participantesPayload)
+          .select('id');
+        if (vErr) throw vErr;
+      } catch (e) {
+        console.error('Falha ao inserir atendimento_participantes (RLS/migração):', e);
+        showToast('Falha ao salvar participantes (RLS/migração).', 'error');
+      }
+    }
+
+    return true;
+  },
+
+  async atualizar(id, dados) { 
+
+    const sanitizeUUID = (val) => (val && val.trim() !== '') ? val : null;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Usuário não autenticado');
+
+    const { data: uData } = await supabase
+      .from('usuarios')
+      .select('id')
+      .eq('email', user.email)
+      .single();
+
+    const payload = {
+      titulo: dados.titulo || 'Reunião',
+      data: dados.data,
+      cliente_id: sanitizeUUID(dados.cliente_id),
+      usuario_id: uData?.id || null,
+      canal: dados.local || 'Escritório',
+      anotacoes: (dados.obs || '')
+    };
+
+    const { error } = await supabase
+      .from('atendimentos')
+      .update(payload)
+      .eq('id', id);
+
+    if (error) throw error;
+
+    // Atualiza participantes (remove e reinsere para garantir que edite ao invés de duplicar)
+    const { error: delErr } = await supabase
+      .from('atendimento_participantes')
+      .delete()
+      .eq('atendimento_id', id);
+
+    if (delErr) {
+      console.error('Falha ao limpar atendimento_participantes (RLS/migração):', delErr);
+      showToast('Falha ao atualizar participantes (RLS/migração).', 'error');
+    }
+
+    const clienteParticipantes = (dados.participantes?.clientes || []).map(c => ({
+      atendimento_id: id,
+      tipo: 'CLIENTE',
+      cliente_id: sanitizeUUID(c.id)
+    }));
+
+    const usuarioParticipantes = (dados.participantes?.usuarios || []).map(u => ({
+      atendimento_id: id,
+      tipo: 'USUARIO',
+      usuario_id: sanitizeUUID(u.id)
+    }));
+
+    const participantesPayload = [...clienteParticipantes, ...usuarioParticipantes]
+      .filter(p => p.cliente_id || p.usuario_id);
+
+    if (participantesPayload.length) {
+      try {
+        const { error: vErr } = await supabase
+          .from('atendimento_participantes')
+          .insert(participantesPayload)
+          .select('id');
+        if (vErr) throw vErr;
+      } catch (e) {
+        console.error('Falha ao inserir atendimento_participantes (RLS/migração):', e);
+        showToast('Falha ao salvar participantes (RLS/migração).', 'error');
+      }
+    }
+
     return true;
   },
 
@@ -104,8 +201,8 @@ const AgendaView = {
   selectTipo: document.getElementById('agenda-tipo'),
   blocoVinculos: document.getElementById('bloco-vinculos'),
   blocoParticipantes: document.getElementById('bloco-participantes'),
-  listClientesMulti: document.getElementById('agenda-clientes-list'),
-  listUsuariosMulti: document.getElementById('agenda-usuarios-list'),
+  listClientesMulti: document.getElementById('agenda-clientes-result'),
+  listUsuariosMulti: document.getElementById('agenda-usuarios-result'),
   selectClienteSingle: document.getElementById('agenda-cliente-single'),
 
   init() {
@@ -129,28 +226,42 @@ const AgendaView = {
         </div>
       </div>
     `;
-    
-    // Injeta estilos para a lista de checkboxes
+
+    // Estilos do UX: resultados e chips (sem checkboxes)
     const style = document.createElement('style');
     style.textContent = `
-      .checkbox-list-container {
-        border: 1px solid var(--cinza-borda);
-        border-radius: 8px;
-        padding: 8px;
-        height: 150px;
-        overflow-y: auto;
-        background: #f8fafc;
+      .search-result-item{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:10px;
+        padding:6px 8px;
+        border:1px solid #eee;
+        border-radius:8px;
+        margin:6px 0;
+        background:#fff;
       }
-      .checkbox-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 4px 0;
-        border-bottom: 1px solid #eee;
+      .search-result-name{font-weight:600; font-size:0.9rem; color: var(--azul-escuro)}
+      .search-result-meta{font-size:0.76rem; color: var(--cinza-medio); margin-top:2px}
+      .chip{
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:6px 10px;
+        border:1px solid var(--cinza-borda);
+        border-radius:999px;
+        background:#fff;
+        font-size:0.85rem;
       }
-      .checkbox-item:last-child { border-bottom: none; }
-      .checkbox-item input { width: auto; margin: 0; }
-      .checkbox-item label { margin: 0; font-weight: normal; font-size: 0.9rem; cursor: pointer; }
+      .chip button{
+        border:none;
+        background:transparent;
+        cursor:pointer;
+        color: var(--cinza-medio);
+        font-size:0.9rem;
+        padding:0;
+      }
+      .chip button:hover{color: var(--azul-escuro)}
     `;
     document.head.appendChild(style);
   },
@@ -180,7 +291,7 @@ const AgendaView = {
           <small class="text-muted" title="${evt.obs || ''}" style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block;">${evt.obs || ''}</small>
         </td>
         <td>
-          <span class="status-badge icon-green">REUNIÃO</span>
+          <span class="status-badge icon-green">${evt.tipo === 'PERICIA' ? 'PERÍCIA' : (evt.tipo === 'AUDIENCIA' ? 'AUDIÊNCIA' : 'REUNIÃO')}</span>
         </td>
         <td style="text-align: right;">
           <button class="btn-sm btn-view" data-id="${evt.id}" data-tipo="${evt.tipo}" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
@@ -197,26 +308,15 @@ const AgendaView = {
   },
 
   popularSelectClientes(clientes) {
-    // Popula a lista de checkboxes (Multi)
-    this.listClientesMulti.innerHTML = clientes.map(c => `
-      <div class="checkbox-item">
-        <input type="checkbox" id="cli-${c.id}" value="${c.id}" data-nome="${c.nome}">
-        <label for="cli-${c.id}">${c.nome}</label>
-      </div>
-    `).join('');
-
-    // Popula o select simples
-    this.selectClienteSingle.innerHTML = '<option value="">(Opcional) Selecione...</option>' + 
+    // Mantém apenas o select simples (cliente vinculado opcional)
+    this.selectClienteSingle.innerHTML = '<option value="">(Opcional) Selecione...</option>' +
       clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
   },
-  
+
   popularSelectUsuarios(usuarios) {
-    this.listUsuariosMulti.innerHTML = usuarios.map(u => `
-      <div class="checkbox-item">
-        <input type="checkbox" id="user-${u.id}" value="${u.id}" data-nome="${u.nome.split(' ')[0]}">
-        <label for="user-${u.id}">${u.nome} (${u.role})</label>
-      </div>
-    `).join('');
+    // Não renderiza lista de checkboxes no novo UX
+    // (equipe interna é selecionada via busca + chips)
+    void usuarios;
   },
 
   // Alterna a visibilidade dos campos do formulário
@@ -272,8 +372,21 @@ const AgendaView = {
     
     if (document.getElementById('agenda-titulo')) document.getElementById('agenda-titulo').value = dados?.titulo || '';
 
+    // Reseta agendaId (criação por padrão)
+    this.form.dataset.agendaId = '';
+
     if (dados) {
         // Lógica de preenchimento virá no controller
+    } else {
+        // Em criação: garantir que não fique nada pre-selecionado
+        const clientesChipsEl = document.getElementById('agenda-clientes-selecionados');
+        const usuariosChipsEl = document.getElementById('agenda-usuarios-selecionados');
+        if (clientesChipsEl) clientesChipsEl.innerHTML = '';
+        if (usuariosChipsEl) usuariosChipsEl.innerHTML = '';
+        const hiddenClientes = document.getElementById('agenda-clientes-ids');
+        const hiddenUsuarios = document.getElementById('agenda-usuarios-ids');
+        if (hiddenClientes) hiddenClientes.value = '';
+        if (hiddenUsuarios) hiddenUsuarios.value = '';
     }
   }
 };
@@ -292,11 +405,13 @@ const AgendaController = {
     AgendaView.btnCancelar.onclick = () => AgendaView.modal.style.display = 'none';
     
     AgendaView.form.onsubmit = async (e) => {
+      // agendaId fica setado somente quando abrir em modo edição
+
       e.preventDefault();
       try {
         const dataInput = document.getElementById('agenda-data').value;
-        const horaInput = document.getElementById('agenda-hora').value;
 
+        const horaInput = document.getElementById('agenda-hora').value;
         if (!dataInput || !horaInput) return showToast('Por favor, selecione a data e hora.', 'warning');
 
         // Combina data e hora no formato ISO
@@ -313,21 +428,36 @@ const AgendaController = {
           obs: document.getElementById('agenda-obs').value
         };
 
-        // Coleta marcados na lista de clientes
-        const clientesChecks = document.querySelectorAll('#agenda-clientes-list input[type="checkbox"]:checked');
-        const clientesSelecionados = Array.from(clientesChecks);
-        
-        // Coleta marcados na lista de usuários
-        const usuariosChecks = document.querySelectorAll('#agenda-usuarios-list input[type="checkbox"]:checked');
-        const usuariosSelecionados = Array.from(usuariosChecks);
+        // Coleta selecionados via checkbox dentro do chip (sem depender de checkboxes no HTML)
+        const clientesSelecionados = Array.from(
+          document.querySelectorAll('#agenda-clientes-selecionados input[type="checkbox"][data-id]:checked')
+        ).map(cb => ({
+          id: cb.dataset.id,
+          nome: cb.dataset.nome
+        }));
+
+        const usuariosSelecionados = Array.from(
+          document.querySelectorAll('#agenda-usuarios-selecionados input[type="checkbox"][data-id]:checked')
+        ).map(cb => ({
+          id: cb.dataset.id,
+          nome: cb.dataset.nome
+        }));
 
         dados.participantes = {
-          clientes: clientesSelecionados.map(opt => ({ id: opt.value, nome: opt.dataset.nome })),
-          usuarios: usuariosSelecionados.map(opt => ({ id: opt.value, nome: opt.dataset.nome }))
+          clientes: clientesSelecionados,
+          usuarios: usuariosSelecionados
         };
-        dados.cliente_id = clientesSelecionados.length > 0 ? clientesSelecionados[0].value : null;
 
-        await AgendaModel.criar(dados);
+
+        dados.cliente_id = clientesSelecionados.length > 0 ? clientesSelecionados[0].id : null;
+
+
+        const agendaId = AgendaView.form.dataset.agendaId;
+        if (agendaId) {
+          await AgendaModel.atualizar(agendaId, dados);
+        } else {
+          await AgendaModel.criar(dados);
+        }
         AgendaView.modal.style.display = 'none';
         AgendaView.form.reset();
         this.carregar();
@@ -340,13 +470,215 @@ const AgendaController = {
     const { data: processos } = await supabase.from('processos').select('id, numero_cnj, clientes(nome)').order('criado_em', {ascending: false});
     if(processos) AgendaView.popularSelectProcessos(processos);
     
-    // Carrega clientes para o select
+    // Carrega clientes e usuários para o select opcional (sem lista de checkboxes)
     const { data: clientes } = await supabase.from('clientes').select('id, nome').order('nome', {ascending: true});
     if(clientes) AgendaView.popularSelectClientes(clientes);
 
-    // Carrega usuários para o select
     const { data: usuarios } = await supabase.from('usuarios').select('id, nome, role').order('nome', {ascending: true});
     if(usuarios) AgendaView.popularSelectUsuarios(usuarios);
+
+    // UX: busca + seleção via chips
+    const clientesBusca = document.getElementById('agenda-clientes-busca');
+    const clientesResult = document.getElementById('agenda-clientes-result');
+    const clientesIdsHidden = document.getElementById('agenda-clientes-ids');
+    const clientesChipsEl = document.getElementById('agenda-clientes-selecionados');
+
+    const usuariosBusca = document.getElementById('agenda-usuarios-busca');
+    const usuariosResult = document.getElementById('agenda-usuarios-result');
+    const usuariosIdsHidden = document.getElementById('agenda-usuarios-ids');
+    const usuariosChipsEl = document.getElementById('agenda-usuarios-selecionados');
+
+    // Garante que existem para o fluxo não quebrar
+    if (!clientesChipsEl || !usuariosChipsEl) {
+      // Sem containers, segue sem UX de participantes.
+      console.warn('Agenda UX: containers de chips não encontrados.');
+    }
+
+
+    const escapeHtml = (s) => (s ?? '').toString().replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));
+
+
+
+    const syncHiddenIds = () => {
+      // Agora o estado real vem dos checkboxes
+      const clienteIds = Array.from(
+        clientesChipsEl.querySelectorAll('input[type="checkbox"][data-id]:checked')
+      ).map(cb => cb.dataset.id);
+
+      const usuarioIds = Array.from(
+        usuariosChipsEl.querySelectorAll('input[type="checkbox"][data-id]:checked')
+      ).map(cb => cb.dataset.id);
+
+      if (clientesIdsHidden) clientesIdsHidden.value = clienteIds.join(',');
+      if (usuariosIdsHidden) usuariosIdsHidden.value = usuarioIds.join(',');
+    };
+
+    const chipHtml = ({ id, nome, role, checked, removeable }) => `
+      <span class="chip" data-id="${id}" data-nome="${escapeHtml(nome)}">
+        <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+          <input
+            type="checkbox"
+            data-id="${id}"
+            data-nome="${escapeHtml(nome)}"
+            ${checked ? 'checked' : ''}
+            ${AgendaView.form.classList.contains('mode-view') ? 'disabled' : ''}
+            style="width:auto;"
+          />
+          <span>
+            ${escapeHtml(nome)}${role ? ' (' + escapeHtml(role) + ')' : ''}
+          </span>
+        </label>
+        ${!AgendaView.form.classList.contains('mode-view') && removeable ? '<button type="button" aria-label="Remover">×</button>' : ''}
+      </span>
+    `;
+
+
+    const setSelectedFromArrays = (clientesArr, usuariosArr) => {
+      if (!clientesChipsEl || !usuariosChipsEl) return;
+      clientesChipsEl.innerHTML = '';
+      usuariosChipsEl.innerHTML = '';
+
+      const removeable = !AgendaView.form.classList.contains('mode-view');
+      clientesArr.forEach(c => clientesChipsEl.insertAdjacentHTML(
+        'beforeend',
+        chipHtml({ id: c.id, nome: c.nome, checked: true, removeable })
+      ));
+      usuariosArr.forEach(u => usuariosChipsEl.insertAdjacentHTML(
+        'beforeend',
+        chipHtml({ id: u.id, nome: u.nome, role: u.role, checked: true, removeable })
+      ));
+
+      syncHiddenIds();
+    };
+
+    const renderResults = (items, container, onPick) => {
+      if (!container) return;
+      container.style.display = 'block';
+      container.innerHTML = items.map(it => {
+        const title = it.nome || it.name || it.cliente_nome || '';
+        const meta = it.role ? `&nbsp;·&nbsp;<span class="text-muted">${escapeHtml(it.role)}</span>` : '';
+        const primary = escapeHtml(title);
+        return `
+          <div class="search-result-item">
+            <div>
+              <div class="search-result-name">${primary}</div>
+              ${it.role ? `<div class="search-result-meta">${escapeHtml(it.role)}</div>` : ''}
+            </div>
+            <button type="button" class="btn-sm btn-primary" data-id="${it.id}">Selecionar</button>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('button[data-id]').forEach(btn => {
+        btn.onclick = () => {
+          const id = btn.dataset.id;
+          const picked = items.find(x => x.id === id);
+          if (picked) onPick(picked);
+        };
+      });
+    };
+
+    const selectedIdSet = (chipsEl) => new Set(Array.from(chipsEl.querySelectorAll('.chip')).map(ch => ch.dataset.id));
+
+    let clientesDebounceT = null;
+    if (clientesBusca) {
+      clientesBusca.addEventListener('input', async () => {
+        const q = clientesBusca.value.trim();
+        clearTimeout(clientesDebounceT);
+        clientesDebounceT = setTimeout(async () => {
+          const selected = selectedIdSet(clientesChipsEl);
+          if (!q || q.length < 2) {
+            if (clientesResult) clientesResult.style.display = 'none';
+            return;
+          }
+
+          const { data, error } = await supabase
+            .from('clientes')
+            .select('id, nome')
+            .ilike('nome', `%${q}%`)
+            .order('nome', { ascending: true })
+            .limit(8);
+
+          if (error) return;
+          const items = (data || []).filter(x => !selected.has(x.id));
+          renderResults(items, clientesResult, (pick) => {
+            clientesChipsEl.insertAdjacentHTML('beforeend', chipHtml({ id: pick.id, nome: pick.nome, checked: true, removeable: !AgendaView.form.classList.contains('mode-view') }));
+            syncHiddenIds();
+            if (clientesResult) clientesResult.style.display = 'none';
+            clientesBusca.value = '';
+          });
+        }, 250);
+      });
+    }
+
+    let usuariosDebounceT = null;
+    if (usuariosBusca) {
+      usuariosBusca.addEventListener('input', async () => {
+        const q = usuariosBusca.value.trim();
+        clearTimeout(usuariosDebounceT);
+        usuariosDebounceT = setTimeout(async () => {
+          const selected = selectedIdSet(usuariosChipsEl);
+          if (!q || q.length < 2) {
+            if (usuariosResult) usuariosResult.style.display = 'none';
+            return;
+          }
+
+          const { data, error } = await supabase
+            .from('usuarios')
+            .select('id, nome, role')
+            .ilike('nome', `%${q}%`)
+            .order('nome', { ascending: true })
+            .limit(8);
+
+          if (error) return;
+          const items = (data || []).filter(x => !selected.has(x.id));
+          renderResults(items, usuariosResult, (pick) => {
+            usuariosChipsEl.insertAdjacentHTML('beforeend', chipHtml({ id: pick.id, nome: pick.nome, role: pick.role, checked: true, removeable: !AgendaView.form.classList.contains('mode-view') }));
+            syncHiddenIds();
+            if (usuariosResult) usuariosResult.style.display = 'none';
+            usuariosBusca.value = '';
+          });
+        }, 250);
+      });
+    }
+
+    // UX: remover chip ao clicar em × (apenas se não estiver em modo visualização)
+    if (clientesChipsEl) {
+      clientesChipsEl.addEventListener('click', (ev) => {
+        const btn = ev.target.closest('button');
+        if (!btn) return;
+        if (AgendaView.form.classList.contains('mode-view')) return;
+        const chip = ev.target.closest('.chip');
+        if (chip) chip.remove();
+        syncHiddenIds();
+      });
+    }
+
+    if (usuariosChipsEl) {
+      usuariosChipsEl.addEventListener('click', (ev) => {
+        const btn = ev.target.closest('button');
+        if (!btn) return;
+        if (AgendaView.form.classList.contains('mode-view')) return;
+        const chip = ev.target.closest('.chip');
+        if (chip) chip.remove();
+        syncHiddenIds();
+      });
+    }
+
+    // UX: atualizar hidden inputs ao marcar/desmarcar checkbox
+    if (clientesChipsEl) {
+      clientesChipsEl.addEventListener('change', (ev) => {
+        if (ev.target && ev.target.matches('input[type="checkbox"][data-id]')) syncHiddenIds();
+      });
+    }
+
+    if (usuariosChipsEl) {
+      usuariosChipsEl.addEventListener('change', (ev) => {
+        if (ev.target && ev.target.matches('input[type="checkbox"][data-id]')) syncHiddenIds();
+      });
+    }
+
+
 
     // Delegação de eventos para ações (Visualizar, Editar, Excluir)
     AgendaView.container.addEventListener('click', async (e) => {
@@ -367,38 +699,140 @@ const AgendaController = {
         const tipo = btnAlvo.dataset.tipo;
         const visualizacao = !!btnView;
 
-        // Busca dados completos para preencher o modal
-        // Obs: Como o listarTudo já traz quase tudo normalizado, podemos buscar lá ou fazer query específica.
-        // Para simplificar e garantir dados frescos, faremos uma query rápida baseada no tipo.
-        let data;
-        const { data: d } = await supabase.from('atendimentos').select('*').eq('id', id).single();
-        data = d;
+            // Busca dados completos para preencher o modal
+            // Importante: trazer os campos que a UI exibe (local/link/obs/título) e IDs para popular participantes.
+            const { data, error } = await supabase
+              .from('atendimentos')
+              .select('id, data, titulo, canal, cliente_id, usuario_id, anotacoes')
+              .eq('id', id)
+              .single();
 
-        if (data) {
+            if (error) throw error;
+
+            if (data) {
             AgendaView.abrirModal(data, visualizacao);
-            
+
+            // agendaId habilita o submit para atualizar em vez de duplicar
+            AgendaView.form.dataset.agendaId = data.id;
+
+            // Preenche o título e desabilita/habilita corretamente antes de renderizar participantes
             AgendaView.toggleForm();
 
-            // Ajusta data para formato datetime-local
+            // Ajusta data (type="date") e mantém hora (type="time") ao editar
             const dateObj = new Date(data.data);
-            const localDate = new Date(dateObj.getTime() - (dateObj.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
-            document.getElementById('agenda-data').value = localDate;
+            const yyyy = String(dateObj.getFullYear());
+            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const dd = String(dateObj.getDate()).padStart(2, '0');
+            document.getElementById('agenda-data').value = `${yyyy}-${mm}-${dd}`;
+
+            const hh = String(dateObj.getHours()).padStart(2, '0');
+            const min = String(dateObj.getMinutes()).padStart(2, '0');
+            document.getElementById('agenda-hora').value = `${hh}:${min}`;
             
             if (document.getElementById('agenda-titulo')) document.getElementById('agenda-titulo').value = data.titulo || '';
-            document.getElementById('agenda-local').value = data.local || ''; // Atendimentos podem não ter local na raiz, ajustar se necessário
-            document.getElementById('agenda-extra').value = data.perito || ''; // Pericias
+            // Agenda armazena local em `canal`
+            document.getElementById('agenda-local').value = data.canal || data.local || '';
+            // Para agenda (reuniões), o campo extra na UI representa o complemento/link.
+            // (atendimentos não possui coluna `perito` no schema atual)
+            document.getElementById('agenda-extra').value = data.canal || data.local || '' ;
             document.getElementById('agenda-obs').value = data.anotacoes || ''; // Reuniões usam 'anotacoes'
             
             // Vínculos
-            if (data.processo_id) document.getElementById('agenda-processo').value = data.processo_id;
+            // (atendimentos na sua schema não possui processo_id; manter apenas cliente)
             if (data.cliente_id) document.getElementById('agenda-cliente-single').value = data.cliente_id;
 
-            // Desabilita checkboxes em modo visualização
-            const checkboxes = AgendaView.listClientesMulti.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(cb => cb.disabled = visualizacao);
-            const userCheckboxes = AgendaView.listUsuariosMulti.querySelectorAll('input[type="checkbox"]');
-            userCheckboxes.forEach(cb => cb.disabled = visualizacao);
+            // Carrega participantes vinculados ao atendimento e marca somente os reais
+            // (visualização e edição: ambas precisam refletir participantes reais)
+            const { data: participantesVinc, error: pErr } = await supabase
+              .from('atendimento_participantes')
+              .select('tipo, cliente_id, usuario_id')
+              .eq('atendimento_id', data.id);
+
+            if (pErr) {
+              // Se falhar por RLS/migração, não quebra o modal.
+              console.error('Falha ao buscar atendimento_participantes:', pErr);
+            }
+
+            const vinc = participantesVinc || [];
+            const clienteIds = new Set(vinc.filter(p => p.tipo === 'CLIENTE' && p.cliente_id).map(p => p.cliente_id));
+            const usuarioIds = new Set(vinc.filter(p => p.tipo === 'USUARIO' && p.usuario_id).map(p => p.usuario_id));
+
+            // Preenche chips com base nos IDs dos vínculos
+            const clientesSelecionados = [];
+            const usuariosSelecionados = [];
+
+            if (clienteIds.size) {
+              const { data: clientesSel } = await supabase
+                .from('clientes')
+                .select('id, nome')
+                .in('id', Array.from(clienteIds));
+              if (clientesSel) clientesSelecionados.push(...clientesSel);
+            }
+
+            if (usuarioIds.size) {
+              const { data: usuariosSel } = await supabase
+                .from('usuarios')
+                .select('id, nome, role')
+                .in('id', Array.from(usuarioIds));
+              if (usuariosSel) usuariosSelecionados.push(...usuariosSel);
+            }
+
+            const clientesChipsEl = document.getElementById('agenda-clientes-selecionados');
+            const usuariosChipsEl = document.getElementById('agenda-usuarios-selecionados');
+            if (clientesChipsEl) clientesChipsEl.innerHTML = '';
+            if (usuariosChipsEl) usuariosChipsEl.innerHTML = '';
+
+            const chipTemplate = ({ id, nome, extra, checked, removeable }) => `
+              <span class="chip" data-id="${id}" data-nome="${nome}">
+                <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+                  <input
+                    type="checkbox"
+                    data-id="${id}"
+                    data-nome="${nome}"
+                    ${checked ? 'checked' : ''}
+                    ${visualizacao ? 'disabled' : ''}
+                    style="width:auto;"
+                  />
+                  <span>
+                    ${nome}${extra ? ' ' + extra : ''}
+                  </span>
+                </label>
+                ${!visualizacao && removeable ? '<button type="button" aria-label="Remover">×</button>' : ''}
+              </span>
+            `;
+
+            if (clientesChipsEl) {
+              clientesSelecionados.forEach(c => {
+                clientesChipsEl.insertAdjacentHTML(
+                  'beforeend',
+                  chipTemplate({ id: c.id, nome: c.nome, checked: true, removeable: !visualizacao })
+                );
+              });
+            }
+
+            if (usuariosChipsEl) {
+              usuariosSelecionados.forEach(u => {
+                usuariosChipsEl.insertAdjacentHTML(
+                  'beforeend',
+                  chipTemplate({
+                    id: u.id,
+                    nome: u.nome,
+                    extra: `(${u.role})`,
+                    checked: true,
+                    removeable: !visualizacao
+                  })
+                );
+              });
+            }
+
+            // Se estiver em modo visualização, desabilita remoção de chips
+            if (visualizacao) {
+              document.querySelectorAll('#agenda-clientes-selecionados .chip button, #agenda-usuarios-selecionados .chip button')
+                .forEach(b => b && b.remove());
+            }
+
         }
+
       }
     });
   },

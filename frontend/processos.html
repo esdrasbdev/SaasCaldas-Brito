@@ -63,6 +63,23 @@
                     <option value="">Carregando...</option>
                   </select>
                 </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px;">
+                  <div class="form-group">
+                    <label>Status</label>
+                    <select id="proc-status">
+                      <option value="ATIVO">ATIVO</option>
+                      <option value="ARQUIVADO">ARQUIVADO</option>
+                      <option value="SUSPENSO">SUSPENSO</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Advogado</label>
+                    <select id="proc-advogado">
+                      <option value="">Selecione...</option>
+                    </select>
+                  </div>
+                </div>
               </div>
               <!-- View Mode -->
               <div id="view-section" style="display: none;">
@@ -116,27 +133,4 @@
   <script type="module" src="js/processos.js"></script>
 </body>
 </html>
-        </div>
-        
-        <div class="filtros-section">
-          <select id="filtro-status">
-            <option value="">Todos Status</option>
-            <option value="ATIVO">Ativo</option>
-            <option value="ARQUIVADO">Arquivado</option>
-          </select>
-          <input type="text" id="busca-processos" placeholder="Buscar por CNJ ou cliente...">
-        </div>
-        
-        <div id="lista-processos" class="processos-grid"></div>
-      </div>
-    </main>
-  </div>
 
-  <script type="module" src="js/supabase.js"></script>
-  <script type="module" src="js/auth.js"></script>
-  <script type="module" src="js/guard.js"></script>
-  <script type="module" src="js/sidebar.js"></script>
-  <script type="module" src="js/processos.js"></script>
-
-</body>
-</html>

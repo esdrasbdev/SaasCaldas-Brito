@@ -228,8 +228,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Populate form
       document.getElementById('cliente-select').value = data.cliente_id || '';
-      const localDate = new Date(data.data).toISOString().slice(0, 16);
-      document.getElementById('pericia-data').value = localDate;
+      const dataObj = new Date(data.data);
+      const ano = dataObj.getFullYear();
+      const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
+      const dia = String(dataObj.getDate()).padStart(2, '0');
+      document.getElementById('pericia-data').value = `${ano}-${mes}-${dia}`;
+
+      const hh = String(dataObj.getHours()).padStart(2, '0');
+      const mm = String(dataObj.getMinutes()).padStart(2, '0');
+      document.getElementById('pericia-hora').value = `${hh}:${mm}`;
+
       document.getElementById('pericia-local').value = data.local || '';
       document.getElementById('pericia-perito').value = data.perito || '';
       document.getElementById('pericia-tipo').value = data.tipo || 'Administrativa';

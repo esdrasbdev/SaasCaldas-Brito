@@ -12,10 +12,15 @@ require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+if (!supabaseAnonKey) {
+  console.error('ERRO CRÍTICO: SUPABASE_ANON_KEY não definida. Encerrando.');
+  process.exit(1);
+}
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!supabaseUrl) {
   // Erro crítico mantido (sem log para não poluir, mas exit necessário)
   process.exit(1);
 }
