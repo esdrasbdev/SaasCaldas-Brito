@@ -164,9 +164,9 @@ const ClienteView = {
           <div><i class="fa-solid fa-phone" style="font-size: 0.8em;"></i> ${c.telefone || '-'}</div>
         </td>
         <td style="text-align: right;">
-          <button class="btn-sm btn-view" data-id="${c.id}" title="Visualizar"><i class="fa-solid fa-eye"></i></button>
-          <button class="btn-sm btn-edit" data-id="${c.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
-          ${isAdmin ? `<button class="btn-sm btn-delete" data-id="${c.id}" title="Excluir" style="color: #ef4444;"><i class="fa-solid fa-trash"></i></button>` : ''}
+          <button class="btn-sm btn-view" data-id="${c.id}" title="Visualizar" aria-label="Visualizar detalhes de ${c.nome}"><i class="fa-solid fa-eye"></i></button>
+          <button class="btn-sm btn-edit" data-id="${c.id}" title="Editar" aria-label="Editar dados de ${c.nome}"><i class="fa-solid fa-pen"></i></button>
+          ${isAdmin ? `<button class="btn-sm btn-delete" data-id="${c.id}" title="Excluir" aria-label="Excluir cliente ${c.nome}" style="color: #ef4444;"><i class="fa-solid fa-trash"></i></button>` : ''}
         </td>
       </tr>
     `).join('');
@@ -385,7 +385,17 @@ const ClienteController = {
     // Submit do Formulário
     ClienteView.elementos.form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const btn = e.target.querySelector('button[type="submit"]');
+      const originalText = btn.innerHTML;
+      
+      try {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
       await this.salvarCliente();
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
     });
 
     // Input de Busca (Debounce manual simples)

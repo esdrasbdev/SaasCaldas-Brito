@@ -77,7 +77,8 @@ async function seedUsers() {
   }
 
   const userList = users.map(u => `${u.email} (${u.role})`).join(', ');
-  console.log(`✅ Usuários concluídos: ${userList}`);
+  console.log(`✅ Usuários padrão (Seed) concluídos: ${userList}`);
+  console.log('ℹ️ Se você estava logado com um desses usuários, pode ser necessário atualizar a página ou fazer login novamente para ver as mudanças.');
 }
 
 module.exports = seedUsers;

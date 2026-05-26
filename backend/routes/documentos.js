@@ -39,10 +39,11 @@ router.post('/upload', async (req, res) => {
   try {
     const { nome, arquivo, tipo, cliente_id, processo_id } = req.body;
     
-    if (!arquivo) return res.status(400).json({ error: 'Arquivo não enviado' });
+    if (!arquivo || !nome) return res.status(400).json({ error: 'Dados do arquivo incompletos' });
+    if (arquivo.length > 10 * 1024 * 1024) return res.status(413).json({ error: 'Arquivo excede limite de 10MB' });
 
     // 1. Upload para o Storage do Supabase
-    const fileName = `${Date.now()}_${nome}`;
+    const fileName = `${Date.now()}_${nome.replace(/\s+/g, '_')}`; // Sanitiza nome do arquivo
     const fileBuffer = Buffer.from(arquivo.split(',')[1] || arquivo, 'base64');
 
     const { data: storageData, error: storageError } = await supabase.storage

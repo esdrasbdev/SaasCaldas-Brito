@@ -9,19 +9,15 @@ import { supabase } from './supabase.js'; // Módulo global
 // Estado global da autenticação
 let currentUserRole = localStorage.getItem('userRole'); // Inicia com valor em cache se existir
 let isFetching = false; // Previne chamadas duplicadas
+let rolePromise = null; // Singleton para a busca da role
 
 // Busca role do usuário na tabela usuarios pelo email da sessão
 async function fetchUserRole() {
-  // Se já tem cache, retorna ele imediatamente para não travar a UI
-  if (currentUserRole && !isFetching) {
-    // Dispara evento mesmo assim para garantir que ouvintes (sidebar) funcionem
-    window.dispatchEvent(new CustomEvent('auth:role-ready', { detail: currentUserRole }));
-  }
-  
-  if (isFetching) return currentUserRole;
+  if (isFetching) return rolePromise;
   isFetching = true;
 
-  try {
+  rolePromise = (async () => {
+    try {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
     
@@ -38,21 +34,28 @@ async function fetchUserRole() {
       .eq('email', user.email)
       .single();
 
-    if (!error && data) {
+    if (error) {
+      console.warn('Usuário autenticado mas não encontrado na tabela "usuarios". Verifique se o seed.js foi executado.', error.message);
+      // Se não achar no DB, mantemos null para não quebrar o sistema
+      currentUserRole = null;
+    } else if (data) {
       currentUserRole = data.role;
       localStorage.setItem('userRole', currentUserRole);
       localStorage.setItem('userName', data.nome);
     }
     
     // Notifica o sistema que a role está pronta/atualizada
-    window.dispatchEvent(new CustomEvent('auth:role-ready', { detail: currentUserRole }));
+    window.dispatchEvent(new CustomEvent('auth:role-ready', { detail: currentUserRole || 'USER' }));
     return currentUserRole;
   } catch (error) {
-    console.error('Erro em fetchUserRole:', error);
-    return currentUserRole; // Retorna o que tiver em cache no pior caso
+      console.error('Erro em fetchUserRole:', error);
+      return currentUserRole;
   } finally {
     isFetching = false;
   }
+  })();
+
+  return rolePromise;
 }
 
 
@@ -123,13 +126,7 @@ function hasPermission(requiredRole) {
 
 // Inicialização automática da sessão
 async function initAuth() {
-  try {
-    // Dispara busca inicial
-    await fetchUserRole();
-    console.log('✅ Auth initialized');
-  } catch (error) {
-    console.error('Erro na initAuth:', error);
-  }
+  return await fetchUserRole();
 }
 
 
@@ -165,6 +162,3 @@ export const AuthAPI = {
 
 // Compatibilidade global (opcional)
 window.AuthAPI = AuthAPI;
-
-// 🚀 Auto-inicialização: Garante que a role seja carregada assim que o script rodar
-fetchUserRole();

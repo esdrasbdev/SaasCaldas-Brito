@@ -303,6 +303,13 @@ p {
   transform: scale(0.95) !important;
 }
 
+/* Acessibilidade: Foco visível para navegação via teclado */
+button:focus-visible, 
+a:focus-visible {
+  outline: 3px solid var(--azul-medio);
+  outline-offset: 2px;
+}
+
 .btn-secondary {
   background: transparent;
   color: var(--azul-escuro); /* Texto preto/escuro no tema claro */
@@ -602,7 +609,7 @@ textarea:focus {
   width: 95%;
   max-width: 1000px; /* Ponto de equilíbrio ideal */
   max-height: 90vh;
-  overflow-y: visible; /* Evita corte de dropdowns de <select> dentro de modais */
+  overflow-y: auto; /* Garantia de scroll em telas muito pequenas */
   background: var(--branco);
   border-radius: 12px;
   padding: 24px;

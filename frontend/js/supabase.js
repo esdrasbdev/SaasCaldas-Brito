@@ -8,14 +8,24 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 // Carrega configurações ou usa placeholders para evitar crash imediato do JS
 const env = window._env || window.env || {};
 if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
-  console.warn('Aviso: Supabase: js/env.js nao carregado ou chaves ausentes no frontend.');
+  console.error('CRÍTICO: Supabase URL ou Anon Key não encontradas no ambiente (js/env.js).');
 }
 
-const supabaseUrl = env.SUPABASE_URL || 'https://xogyvlhgtznffapbpovq.supabase.co';
-const supabaseKey = env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhvZ3l2bGhndHpuZmZhcGJwb3ZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4MjAyMjksImV4cCI6MjA4OTM5NjIyOX0.Dsnz3Pwyi-QvifHurtqdS3DVYtqH4NeOfVuNs-PdSqM';
+if (!env.SUPABASE_URL || env.SUPABASE_URL.includes('SUA-URL')) {
+  console.warn('AVISO: Você ainda não configurou as chaves reais do Supabase no arquivo js/env.js');
+}
 
-// Cria instância oficial
-export const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseUrl = env.SUPABASE_URL;
+const supabaseKey = env.SUPABASE_ANON_KEY;
+
+// Cria instância oficial (só se estiver configurado)
+const hasSupabaseConfig = Boolean(supabaseUrl && supabaseKey && !supabaseUrl.includes('SUA-URL'));
+
+export const supabase = hasSupabaseConfig
+  ? createClient(supabaseUrl, supabaseKey)
+  : // Fallback seguro: evita crash imediato. Chamadas vão falhar claramente no console.
+    createClient('https://example.supabase.co', 'example');
+
 
 // Helper para obter a URL base da API (Backend)
 export const getApiUrl = () => {

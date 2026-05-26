@@ -206,7 +206,10 @@ formPericia.addEventListener('submit', async (e) => {
   }
 });
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Aguarda a autenticação inicializar antes de carregar dados
+  await AuthAPI.init();
+  
   ajustarCamposFormulario();
   carregarClientes();
   carregarPericias();
