@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const supabase = require('../supabase');
+const { supabasePublic } = require('../supabase');
 const EscavadorService = require('../services/escavador');
 
 router.use(auth);
@@ -22,7 +22,7 @@ router.use((req, res, next) => {
 // GET /api/publicacoes - Lista todas
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabasePublic
       .from('publicacoes')
       .select('*')
       .order('data_publicacao', { ascending: false });

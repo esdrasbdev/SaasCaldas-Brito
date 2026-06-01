@@ -3,6 +3,10 @@
   "name": "juridico-caldas-brito",
   "rewrites": [
     {
+      "source": "/js/env.js",
+      "destination": "/backend/index.js"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/backend/index.js"
     },
@@ -11,10 +15,6 @@
       "destination": "/frontend/$1"
     }
   ],
-  "crons": [
-    {
-      "path": "/api/publicacoes/sincronizar",
-      "schedule": "0 3 * * *"
-    }
-  ]
+  "crons": []
 }
+

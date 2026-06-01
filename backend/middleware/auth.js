@@ -2,7 +2,7 @@
  * Middleware de Autenticação Global
  * Valida o JWT do Supabase e anexa o usuário da tabela 'usuarios' ao req.user
  */
-const supabase = require('../supabase');
+const { supabasePublic } = require('../supabase');
 
 const authMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -12,11 +12,11 @@ const authMiddleware = async (req, res, next) => {
 
   try {
     // 1. Valida a sessão com o Supabase Auth
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const { data: { user }, error } = await supabasePublic.auth.getUser(token);
     if (error || !user) throw new Error('Sessão inválida');
 
     // 2. Busca os dados estendidos (Role) na tabela de usuários
-    const { data: dbUser, error: dbError } = await supabase
+    const { data: dbUser, error: dbError } = await supabasePublic
       .from('usuarios')
       .select('id, email, role, nome')
       .eq('email', user.email)
@@ -33,3 +33,4 @@ const authMiddleware = async (req, res, next) => {
 };
 
 module.exports = authMiddleware;
+

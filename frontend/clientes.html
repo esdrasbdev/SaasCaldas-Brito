@@ -8,8 +8,15 @@
   <link rel="stylesheet" href="css/reset.css">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/sidebar.css">
-  <!-- Configuração de Ambiente (Obrigatório) -->
-  <script src="js/env.js"></script>
+  <!-- Env vars required for supabase -->
+  <script>
+    (function () {
+      var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      var script = document.createElement('script');
+      script.src = isLocal ? 'http://localhost:3001/js/env.js' : '/js/env.js';
+      document.head.appendChild(script);
+    })();
+  </script>
 </head>
 <body>
   <div class="app-container">

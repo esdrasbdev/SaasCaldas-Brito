@@ -40,6 +40,10 @@ app.get('/', (req, res) => {
 // Seed REMOVIDO do startup (executar manualmente apenas quando necessário)
  // (async () => { try { await require('./seed.js')(); } catch (e) { console.warn('⚠️ Seed executado com warnings:', e.message); } })();
 
+// Serve env.js para o frontend (window._env)
+const jsEnvRouter = require('./js-env.js');
+app.use(jsEnvRouter);
+
 // Importa middlewares
 const authMiddleware = require('./middleware/auth.js');
 // Sugestão de implementação futura: const requireRole = require('./middleware/requireRole.js');
@@ -47,6 +51,7 @@ const authMiddleware = require('./middleware/auth.js');
 // Importa rotas
 const clientesRouter = require('./routes/clientes.js');
 app.use('/api/clientes', authMiddleware, clientesRouter);
+
 
 const processosRouter = require('./routes/processos.js');
 app.use('/api/processos', authMiddleware, processosRouter);

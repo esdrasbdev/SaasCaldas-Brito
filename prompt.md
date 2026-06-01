@@ -1,142 +1,386 @@
-═══════════════════════════════════════════════════════════════════════════════
-           📋 MISSÃO IMPORTANTE: REALIZAR AUDITORIA COMPLETA DE CÓDIGO
-           DE TODO O PROJETO SAAS, ANALISANDO FRONTEND E BACKEND
-           PARA DETERMINAR SE O SISTEMA ESTÁ FUNCIONANDO CORRETAMENTE
-═══════════════════════════════════════════════════════════════════════════════
+# BUGFIX — SaasCaldas-Brito: dados não chegam ao frontend
 
-═══════════════════════════════════════════════════════════════════════════════
-                    FASE 1: ANÁLISE DA ESTRUTURA DO SISTEMA
-═══════════════════════════════════════════════════════════════════════════════════════
+## Contexto
 
-Primeiro, identifique e liste:
+Sistema jurídico SaaS (Express + Supabase + Vanilla JS ES Modules) deployado na Vercel (frontend) e Railway (backend). Todos os módulos ficam presos em "Carregando..." porque três bugs críticos bloqueiam 100% do fluxo de dados. Nenhuma linha nova de feature deve ser adicionada — apenas as correções descritas abaixo.
 
-1. [x] TODOS OS ARQUIVOS DO PROJETO (Estrutura: frontend/, backend/, sql/)
-2. [x] Tecnologias usadas no frontend (JS ESM, CSS3, Supabase Client)
-3. [x] Tecnologias de backend (Node.js/Express, Resend, Node-cron)
-4. [x] Conexão e configuração do banco de dados (Supabase/PostgreSQL)
-5. [x] Rotas e endpoints da API (Documentos, Auth)
-6. [x] Configurações de ambiente (env.js no front, .env no back)
+---
 
-═══════════════════════════════════════════════════════════════════════════════
-                    FASE 2: ANÁLISE DE FUNCIONALIDADE DO FRONTEND
-═══════════════════════════════════════════════════════════════════════════════
+## BUG 1 — Frontend sem credenciais do Supabase (crítico)
 
-### A. Problemas Visuais/UI
-- [x] Estilos organizados em style.css, reset.css e sidebar.css.
-- [x] Sistema de design consistente baseado em variáveis CSS (Inter/Slate).
-- [x] Bugs visuais de overflow no modal corrigidos.
-- [x] Elementos de UI estão coesos.
+### Problema
 
-### B. Análise de Responsividade
-Teste e verifique estes breakpoints:
-- Mobile: < 768px (celulares)
-- Tablet: 768px - 1024px (celulares em landscape, tablets pequenas)
-- Desktop: > 1024px (laptops, monitores)
+`frontend/js/supabase.js` lê as credenciais de `window._env`, que é injetado por `frontend/js/env.js`. Esse arquivo está no `.gitignore` por segurança e **nunca é deployado**. Na Vercel, `window._env` é `undefined`, e o cliente Supabase é criado com URL `https://example.supabase.co` — todas as queries do frontend falham silenciosamente.
 
-Verifique especificamente:
-- [x] Navbar/Sidebar adaptável via Media Queries.
-- [x] Menu toggle implementado.
-- [x] Seção Hero/Banner responsiva.
-- [x] KPI Cards se organizam em grid (1fr no mobile).
-- [x] Imagens (logo) tratadas com max-width.
-- [x] Texto legível em todos os tamanhos.
-- [x] Botões com padding adequado para touch.
-- [x] Sem scroll horizontal detectado.
+Módulos afetados que fazem queries diretas ao Supabase (sem passar pelo backend):
+- `frontend/js/dashboard.js`
+- `frontend/js/processos.js`
+- `frontend/js/audiencias.js`
+- `frontend/js/agenda.js`
+- `frontend/js/clientes.js`
+- `frontend/js/pericias.js`
+- `frontend/js/atendimentos.js`
 
-### C. Elementos Interativos
-- [x] Estados hover/active implementados com transform: scale(0.95).
-- [x] Links funcionais.
-- [x] Animações fadeInUp e scaleIn adicionadas.
-- [x] Validação de CPF/Nome em clientes.js.
-- [x] Toast notifications e loading spinners adicionados.
+### Correção
 
-### D. Acessibilidade
-- [x] HTML semântico em tabelas e modais.
-- [x] Alt tags presentes em logotipos.
-- [x] Foco visível (outline-offset) adicionado ao CSS.
-- [x] Contraste de cores segue WCAG.
-- [x] Labels ARIA adicionadas aos botões de ação (Visualizar/Excluir).
+**Passo 1 — Adicionar rota no backend** (`backend/index.js`)
 
-═══════════════════════════════════════════════════════════════════════════════════════
-                    FASE 3: ANÁLISE DE FUNCIONALIDADE DO BACKEND
-═══════════════════════════════════════════════════════════════════════════════════════
+Inserir antes das demais rotas de `/api/*`, logo após os middlewares de CORS e JSON:
 
-### A. Servidor/API
-- [x] index.js configurado.
-- [x] Rotas de documentos mapeadas.
-- [x] Métodos RESTful respeitados.
-- [x] Try/Catch implementados em rotas críticas.
-- [x] Sanitização de Base64 e Buffer no upload.
-- [ ] Headers de segurança (Helmet) pendentes.
+```js
+// Serve variáveis de ambiente públicas para o frontend
+// Nunca exponha SUPABASE_SERVICE_ROLE_KEY aqui — apenas chaves públicas
+app.get('/js/env.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(`window._env = {
+  SUPABASE_URL: "${process.env.SUPABASE_URL || ''}",
+  SUPABASE_ANON_KEY: "${process.env.SUPABASE_ANON_KEY || ''}"
+};`);
+});
+```
 
-### B. Banco de Dados
-- [x] Conexão via Supabase SDK.
-- [x] Schema SQL robusto com Foreign Keys.
-- [x] CRUD de clientes e documentos operacionais.
-- [x] Proteção nativa via Supabase Query Builder.
-- [x] Validação de colunas existentes antes do save.
+**Passo 2 — Atualizar `vercel.json`**
 
-### C. Autenticação (se existir)
-- [x] Login funcional via Supabase Auth.
-- [x] Hash gerenciado pelo Supabase.
-- [x] JWT interceptado via Middleware no backend.
-- [x] RLS (Row Level Security) habilitado.
-- [x] Logout com limpeza de cache.
+Adicionar a reescrita para `/js/env.js` **antes** da regra catch-all `/(.*)`  — a ordem importa no Vercel:
 
-### D. Segurança
-- [x] Variáveis de ambiente priorizadas.
-- [ ] Sem credenciais hardcoded
-- [ ] CORS configurado corretamente
-- [ ] Rate limiting (se necessário)
-- [ ] Aplicação de HTTPS
-- [ ] Sanitização de entradas
+```json
+{
+  "version": 2,
+  "name": "juridico-caldas-brito",
+  "rewrites": [
+    {
+      "source": "/js/env.js",
+      "destination": "/backend/index.js"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/backend/index.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/frontend/$1"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/publicacoes/sincronizar",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}
+```
 
-═══════════════════════════════════════════════════════════════════════════════
-                    FASE 4: ANÁLISE DE PERFORMANCE
-═══════════════════════════════════════════════════════════════════════════════
+**Passo 3 — Verificar que todas as páginas HTML carregam `env.js`**
 
-- [x] Logotipos em formatos leves.
-- [ ] Minificação pendente para build de produção.
-- [ ] Lazy loading pendente em tabelas grandes (implementar paginação).
-- [x] Limpeza de usuários duplicados (cleanup.js).
-- [x] Uso de singleton para roles para evitar excesso de rede.
+Conferir que todas as páginas abaixo têm `<script src="js/env.js"></script>` no `<head>`, **antes de qualquer `<script type="module">`**:
 
-═══════════════════════════════════════════════════════════════════════════════
-                    FASE 5: RELATÓRIO COMPLETO
-═══════════════════════════════════════════════════════════════════════════════════════
+- `frontend/index.html` ✓ (já tem)
+- `frontend/clientes.html` ✓ (já tem)
+- `frontend/processos.html` ✓ (já tem)
+- `frontend/audiencias.html` — verificar e adicionar se faltar
+- `frontend/agenda.html` — verificar e adicionar se faltar
+- `frontend/pericias.html` — verificar e adicionar se faltar
+- `frontend/atendimentos.html` — verificar e adicionar se faltar
+- `frontend/documentos.html` — verificar e adicionar se faltar
+- `frontend/admin.html` — verificar e adicionar se faltar
+- `frontend/publicacoes.html` — verificar e adicionar se faltar
 
-Para CADA problema encontrado, forneça:
+O `<script src="js/env.js"></script>` deve sempre ser a **primeira tag script**, síncrona, sem `type="module"` e sem `defer`.
 
-1. Localização do arquivo e número da linha
-2. Descrição do problema
-3. Severidade: Crítica / Alta / Média / Baixa
-4. Solução/Recomendação para corrigir
+---
 
-Após a análise completa, organize a saída como:
+## BUG 2 — `authMiddleware` usa o objeto do módulo Supabase como se fosse um client (crítico)
 
-### 🚨 PROBLEMAS CRÍTICOS (Deve Corrigir)
-- Liste todos os problemas críticos
+### Problema
 
-### ⚠️ ALTA PRIORIDADE
-- Liste problemas importantes
+`backend/middleware/auth.js` faz:
 
-### 📝 PRIORIDADE MÉDIA
-- Liste problemas moderados
+```js
+const supabase = require('../supabase');
+```
 
-### 💡 SUGESTÕES DE MELHORIA
-- Liste oportunidades de melhoria
+Mas `backend/supabase.js` exporta `{ supabasePublic, supabaseAdmin, getAdminClient }` — um objeto comum, não um client Supabase. Portanto `supabase.auth` é `undefined`, e a linha `supabase.auth.getUser(token)` lança `TypeError: Cannot read properties of undefined`. Como esse middleware é aplicado a **todas as rotas protegidas**, nenhuma chamada de API funciona — todas retornam 401 ou 500.
 
-### ✅ FUNCIONANDO CORRETAMENTE
-- Liste o que está funcionando bem
+### Correção
 
-═══════════════════════════════════════════════════════════════════════════════
-                    REQUISITOS DA MISSÃO
-═══════════════════════════════════════════════════════════════════════════════
+Substituir o conteúdo completo de `backend/middleware/auth.js`:
 
-1. Leia CADA arquivo do projeto
-2. Teste funcionalidade manualmente se possível
-3. Forneça feedback específico e acionável
-4. Sugira melhorias concretas com exemplos de código
-5. Priorize problemas por severidade
+```js
+/*
+ * Middleware de Autenticação Global
+ * Valida o JWT do Supabase e anexa o usuário da tabela 'usuarios' ao req.user
+ */
+const { supabasePublic } = require('../supabase');
 
-Execute esta auditoria abrangentemente e forneça descobertas detalhadas!
+const authMiddleware = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'Token não fornecido' });
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    // 1. Valida a sessão com o Supabase Auth
+    const { data: { user }, error } = await supabasePublic.auth.getUser(token);
+    if (error || !user) throw new Error('Sessão inválida');
+
+    // 2. Busca os dados estendidos (role) na tabela de usuários
+    const { data: dbUser, error: dbError } = await supabasePublic
+      .from('usuarios')
+      .select('id, email, role, nome')
+      .eq('email', user.email)
+      .single();
+
+    if (dbError || !dbUser) throw new Error('Usuário não encontrado no cadastro');
+
+    req.user = dbUser;
+    next();
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+};
+
+module.exports = authMiddleware;
+```
+
+---
+
+## BUG 3 — Quatro rotas com o mesmo import errado (crítico)
+
+### Problema
+
+Os arquivos abaixo fazem `const supabase = require('../supabase')` e depois chamam `supabase.from(...)` ou `supabase.storage.from(...)`. Como `require('../supabase')` retorna o objeto do módulo (não um client), essas chamadas lançam `TypeError` e toda rota retorna 500.
+
+### Correção por arquivo
+
+---
+
+#### `backend/routes/processos.js`
+
+Substituir o conteúdo completo:
+
+```js
+/*
+ * Rotas de Processos (Backend)
+ */
+
+const express = require('express');
+const router = express.Router();
+const { supabasePublic } = require('../supabase');
+
+// GET /api/processos
+router.get('/', async (req, res) => {
+  try {
+    const { data, error } = await supabasePublic
+      .from('processos')
+      .select('*, clientes(nome)')
+      .order('criado_em', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+module.exports = router;
+```
+
+---
+
+#### `backend/routes/atendimentos.js`
+
+Substituir a linha de import e todas as ocorrências de `supabase.` por `supabasePublic.`:
+
+```js
+const express = require('express');
+const router = express.Router();
+const { supabasePublic } = require('../supabase');
+
+// GET /api/atendimentos
+router.get('/', async (req, res) => {
+  try {
+    const { data, error } = await supabasePublic
+      .from('atendimentos')
+      .select('*, clientes(nome), usuarios(nome)')
+      .order('data', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/atendimentos
+router.post('/', async (req, res) => {
+  try {
+    const novoAtendimento = {
+      ...req.body,
+      usuario_id: req.user.id
+    };
+
+    const { data, error } = await supabasePublic
+      .from('atendimentos')
+      .insert([novoAtendimento])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+module.exports = router;
+```
+
+---
+
+#### `backend/routes/publicacoes.js`
+
+Substituir a linha de import:
+
+```js
+// DE:
+const supabase = require('../supabase');
+
+// PARA:
+const { supabasePublic } = require('../supabase');
+```
+
+E substituir todas as ocorrências de `supabase.from(` por `supabasePublic.from(` no arquivo.
+
+---
+
+#### `backend/routes/documentos.js`
+
+Substituir a linha de import:
+
+```js
+// DE:
+const supabase = require('../supabase');
+
+// PARA:
+const { supabasePublic } = require('../supabase');
+```
+
+E substituir **todas** as ocorrências de `supabase.` por `supabasePublic.` no arquivo inteiro — isso inclui `supabase.from(`, `supabase.storage.from(`, e `supabase.storage.from('documentos').getPublicUrl(`.
+
+---
+
+## BUG 4 — `audiencias.js` e `pericias.js` criam client Supabase duplicado com SERVICE_ROLE (risco de segurança + inconsistência)
+
+### Problema
+
+`backend/routes/audiencias.js` e `backend/routes/pericias.js` criam um novo `createClient(...)` internamente usando `SUPABASE_SERVICE_ROLE_KEY`. Isso bypassa o padrão centralizado do projeto e usa a chave de service role onde não é necessário.
+
+### Correção
+
+**`backend/routes/audiencias.js`** — substituir o conteúdo completo:
+
+```js
+const express = require('express');
+const router = express.Router();
+const { supabasePublic } = require('../supabase');
+
+router.get('/', async (req, res) => {
+  try {
+    const { data, error } = await supabasePublic
+      .from('audiencias')
+      .select('*, processos(numero_cnj), clientes(nome)');
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const { data, error } = await supabasePublic
+      .from('audiencias')
+      .insert([req.body])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+module.exports = router;
+```
+
+**`backend/routes/pericias.js`** — substituir o conteúdo completo:
+
+```js
+const express = require('express');
+const router = express.Router();
+const { supabasePublic } = require('../supabase');
+
+router.get('/', async (req, res) => {
+  try {
+    const { data, error } = await supabasePublic
+      .from('pericias')
+      .select('*, clientes(nome)');
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const { data, error } = await supabasePublic
+      .from('pericias')
+      .insert([req.body])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+module.exports = router;
+```
+
+---
+
+## Checklist de validação após aplicar as correções
+
+Após salvar todos os arquivos, verificar na ordem:
+
+1. **Localmente:** iniciar o backend (`node backend/index.js`) e acessar `http://localhost:3001/js/env.js` no browser — deve retornar um JS com as variáveis preenchidas (não vazias).
+2. **Localmente:** abrir o frontend e verificar no console do browser que `window._env.SUPABASE_URL` contém a URL real do Supabase.
+3. **Deploy:** fazer push e verificar que o Vercel conclui o build sem erros.
+4. **Pós-deploy:** acessar `https://<seu-dominio>.vercel.app/js/env.js` e confirmar que retorna as variáveis (sem a service role key).
+5. **Smoke test:** fazer login, verificar que o dashboard carrega KPIs, abrir Clientes e confirmar que a lista aparece, abrir Processos e confirmar o mesmo.
+
+---
+
+## Arquivos modificados neste bugfix
+
+| Arquivo | Tipo de mudança |
+|---|---|
+| `vercel.json` | Nova reescrita para `/js/env.js` |
+| `backend/index.js` | Nova rota `GET /js/env.js` |
+| `backend/middleware/auth.js` | Import corrigido: `supabasePublic` |
+| `backend/routes/processos.js` | Import corrigido: `supabasePublic` |
+| `backend/routes/atendimentos.js` | Import corrigido: `supabasePublic` |
+| `backend/routes/publicacoes.js` | Import corrigido: `supabasePublic` |
+| `backend/routes/documentos.js` | Import corrigido: `supabasePublic` |
+| `backend/routes/audiencias.js` | Removido `createClient` duplicado, usa `supabasePublic` |
+| `backend/routes/pericias.js` | Removido `createClient` duplicado, usa `supabasePublic` |
+| Todas as páginas HTML | Verificar presença de `<script src="js/env.js">` no `<head>` |
+
+Nenhuma alteração de schema SQL, seed, ou lógica de negócio é necessária.

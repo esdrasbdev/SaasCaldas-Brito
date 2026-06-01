@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const supabase = require('../supabase');
+const { supabasePublic } = require('../supabase');
 
 // GET /api/atendimentos
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabasePublic
       .from('atendimentos')
       .select('*, clientes(nome), usuarios(nome)')
       .order('data', { ascending: false });
@@ -25,7 +25,7 @@ router.post('/', async (req, res) => {
       usuario_id: req.user.id // Garante que o ID venha do token autenticado
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await supabasePublic
       .from('atendimentos')
       .insert([novoAtendimento])
       .select()

@@ -11,10 +11,25 @@ import { showToast } from './utils.js';
 const ProcessoModel = {
   async listarTodos() {
     try {
-      const { data, error } = await supabase
+      console.log('[processos] listarTodos start');
+      if (!supabase) {
+        throw new Error('Supabase client is null');
+      }
+
+      const res = await supabase
         .from('processos')
         .select('*, clientes(nome)')
         .order('criado_em', { ascending: false });
+
+      console.log('[processos] listarTodos result:', {
+        hasData: !!res?.data,
+        dataLen: Array.isArray(res?.data) ? res.data.length : null,
+        hasError: !!res?.error,
+        errorMessage: res?.error?.message,
+        errorCode: res?.error?.code
+      });
+
+      const { data, error } = res;
       if (error) throw error;
       return data || [];
     } catch (error) {
@@ -210,11 +225,27 @@ const ProcessoController = {
   },
 
   async loadAll() {
-    this.data = await ProcessoModel.listarTodos();
-    const isAdmin = AuthAPI.getRole() === 'ADMIN';
-    ProcessoView.renderizarTabela(this.data, isAdmin);
-    await this.loadClientes();
-    await this.loadAdvogados();
+    try {
+      // placeholder
+      const tbody = document.getElementById('lista-processos-body');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center">Carregando...</td></tr>';
+
+      this.data = await ProcessoModel.listarTodos();
+      const isAdmin = AuthAPI.getRole() === 'ADMIN';
+      ProcessoView.renderizarTabela(this.data, isAdmin);
+      await this.loadClientes();
+      await this.loadAdvogados();
+    } catch (err) {
+      console.error('loadAll processos error:', err);
+      const tbody = document.getElementById('lista-processos-body');
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center p-5">
+          <i class="fa-solid fa-circle-exclamation fa-2x mb-2" style="color:#ef4444;"></i><br>
+          Falha ao carregar processos. <br><small>${(err && err.message) ? err.message : 'Erro desconhecido'}</small>
+        </td></tr>`;
+      }
+      showToast('Falha ao carregar processos', 'error');
+    }
   },
 
   filter() {
@@ -256,5 +287,27 @@ const ProcessoController = {
   }
 };
 
-document.addEventListener('DOMContentLoaded', () => ProcessoController.init());
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('[processos] DOMContentLoaded');
+
+  const container = document.getElementById('view-processos-container');
+  if (!container) console.warn('[processos] missing #view-processos-container');
+
+  const env = window._env || {};
+  console.log('[processos] env check:', {
+    hasUrl: !!env.SUPABASE_URL,
+    hasKey: !!env.SUPABASE_ANON_KEY,
+    hostname: window.location.hostname
+  });
+
+  ProcessoController.init().catch((e) => {
+    console.error('[processos] init failed:', e);
+    const tbody = document.getElementById('lista-processos-body');
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center p-5">Falha ao iniciar processos. <br><small>${e?.message || 'Erro'}</small></td></tr>`;
+    }
+  });
+});
+
+
 

@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const supabase = require('../supabase');
+const { supabasePublic } = require('../supabase');
 
 router.use(auth);
 
@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
     const { cliente_id } = req.query;
 
     // Constrói a query base
-    let query = supabase
+    let query = supabasePublic
       .from('documentos')
       .select('*, clientes(nome), processos(numero_cnj), usuarios(nome)');
 
@@ -46,19 +46,19 @@ router.post('/upload', async (req, res) => {
     const fileName = `${Date.now()}_${nome.replace(/\s+/g, '_')}`; // Sanitiza nome do arquivo
     const fileBuffer = Buffer.from(arquivo.split(',')[1] || arquivo, 'base64');
 
-    const { data: storageData, error: storageError } = await supabase.storage
+    const { data: storageData, error: storageError } = await supabasePublic.storage
       .from('documentos')
       .upload(fileName, fileBuffer, { contentType: tipo, upsert: true });
 
     if (storageError) throw storageError;
 
     // 2. Obtém URL pública
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = supabasePublic.storage
       .from('documentos')
       .getPublicUrl(fileName);
 
     // 3. Salva referência no banco de dados
-    const { data: dbData, error: dbError } = await supabase
+    const { data: dbData, error: dbError } = await supabasePublic
       .from('documentos')
       .insert([{
         nome: nome,
@@ -86,7 +86,7 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
     // 1. Busca dados do documento para remover o arquivo físico do Storage
-    const { data: doc } = await supabase
+    const { data: doc } = await supabasePublic
       .from('documentos')
       .select('url')
       .eq('id', id)
@@ -94,10 +94,10 @@ router.delete('/:id', async (req, res) => {
 
     if (doc && doc.url) {
       const fileName = doc.url.split('/').pop();
-      await supabase.storage.from('documentos').remove([fileName]);
+      await supabasePublic.storage.from('documentos').remove([fileName]);
     }
 
-    const { error } = await supabase.from('documentos').delete().eq('id', id);
+    const { error } = await supabasePublic.from('documentos').delete().eq('id', id);
     
     if (error) throw error;
 

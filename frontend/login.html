@@ -6,7 +6,15 @@
   <title>Login | Caldas & Brito Advocacia</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <script src="js/env.js"></script>
+  <script>
+    (function () {
+      var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      var script = document.createElement('script');
+      script.src = isLocal ? 'http://localhost:3001/js/env.js' : '/js/env.js';
+      document.head.appendChild(script);
+    })();
+  </script>
+
 </head>
 <body class="login-page">
 
@@ -76,6 +84,17 @@
     // Limpa sessão anterior ao entrar no login
     localStorage.removeItem('userRole'); // Corrigido de user_role para userRole
     localStorage.removeItem('userName');
+    
+    // Diagnostics: tenta detectar se env.js veio
+    const checkEnv = () => {
+      const env = window._env || window.env;
+      if (!env || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
+        console.warn('AVISO: js/env.js não carregou SUPABASE_URL/SUPABASE_ANON_KEY.');
+      }
+    };
+    checkEnv();
+    
+
     
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();

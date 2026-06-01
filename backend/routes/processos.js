@@ -5,14 +5,14 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const supabase = require('../supabase');
+const { supabasePublic } = require('../supabase');
 
 router.use(auth);
 
 // GET /api/processos
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabasePublic
       .from('processos')
       .select('*, clientes(nome)')
       .order('criado_em', { ascending: false });
